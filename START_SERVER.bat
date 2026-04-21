@@ -21,6 +21,11 @@ set DATABASE_URL=postgresql://postgres:SaCnffbRJGuLCFzKFFrwHgstQEDeyvUY@shinkans
 set JWT_SECRET=pharmadist_super_secret_2026_xyz789abc
 set NODE_ENV=production
 
+:: ── ADMIN CREDENTIALS (must match Railway Variables) ──────────
+:: Change these to match what you set in Railway → Variables tab
+set ADMIN_EMAIL=vishal@dormed.com
+set ADMIN_PASSWORD=DORMEDS@2026
+
 :: Change to server directory
 cd /d "C:\Users\Vishal\10000\server"
 

@@ -222,7 +222,25 @@ async function initDB() {
       details TEXT,
       ts TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS admins (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      pass_hash TEXT NOT NULL,
+      created_at TEXT,
+      is_super BOOLEAN DEFAULT false
+    );
   `);
+
+  // Seed first admin from env vars
+  const adminExists = await dbGet('SELECT 1 FROM admins LIMIT 1');
+  if (!adminExists) {
+    await dbRun(
+      'INSERT INTO admins (id,name,email,pass_hash,created_at,is_super) VALUES ($1,$2,$3,$4,$5,$6)',
+      ['admin', 'Admin', ADMIN_EMAIL.toLowerCase(), hash(ADMIN_PASSWORD), new Date().toISOString(), true]
+    );
+  }
 
   // Seed dist info
   const distExists = await dbGet('SELECT 1 as x FROM dist_info LIMIT 1');
@@ -335,12 +353,12 @@ app.post('/api/login', async (req, res) => {
 
   let userData;
   if (role === 'admin') {
-    if (em === ADMIN_EMAIL.toLowerCase() && pw === ADMIN_PASSWORD) {
-      userData = { id: 'admin', name: 'Admin', email: em, role: 'admin', init: 'AD' };
-    } else {
+    const adm = await dbGet('SELECT * FROM admins WHERE email=$1', [em]);
+    if (!adm || adm.pass_hash !== hash(pw)) {
       await auditLog('LOGIN_FAILED', em, 'admin', 'Wrong credentials');
       return res.status(401).json({ ok: false, msg: 'Invalid admin credentials.' });
     }
+    userData = { id: adm.id, name: adm.name, email: adm.email, role: 'admin', init: adm.name[0].toUpperCase(), isSuper: adm.is_super };
   } else {
     const ph = await dbGet('SELECT * FROM pharmacies WHERE email=$1 AND pass_hash=$2', [em, hash(pw)]);
     if (!ph) { await auditLog('LOGIN_FAILED', em, 'pharmacy', 'Wrong credentials'); return res.status(401).json({ ok: false, msg: 'Invalid email or password.' }); }
@@ -446,15 +464,57 @@ app.delete('/api/sessions/:sid', authMiddleware, async (req, res) => {
 });
 
 app.post('/api/change-password', authMiddleware, async (req, res) => {
-  if (req.user.role === 'admin') return res.status(400).json({ ok: false, msg: 'Admin password is managed by the system.' });
   const { currentPassword, newPassword } = req.body;
   if (!currentPassword || !newPassword) return res.status(400).json({ ok: false, msg: 'Both fields are required.' });
   if (newPassword.length < 8) return res.status(400).json({ ok: false, msg: 'New password must be at least 8 characters.' });
+  if (req.user.role === 'admin') {
+    const adm = await dbGet('SELECT * FROM admins WHERE id=$1 AND pass_hash=$2', [req.user.id, hash(currentPassword)]);
+    if (!adm) return res.status(400).json({ ok: false, msg: 'Current password is incorrect.' });
+    await dbRun('UPDATE admins SET pass_hash=$1 WHERE id=$2', [hash(newPassword), req.user.id]);
+    await auditLog('ADMIN_PASSWORD_CHANGED', req.user.id, 'admin', '');
+    return res.json({ ok: true, msg: 'Admin password changed successfully.' });
+  }
   const ph = await dbGet('SELECT * FROM pharmacies WHERE id=$1 AND pass_hash=$2', [req.user.phId, hash(currentPassword)]);
   if (!ph) return res.status(400).json({ ok: false, msg: 'Current password is incorrect.' });
   await dbRun('UPDATE pharmacies SET pass_hash=$1 WHERE id=$2', [hash(newPassword), req.user.phId]);
   await auditLog('PASSWORD_CHANGED', req.user.id, 'pharmacy', '');
   res.json({ ok: true, msg: 'Password changed successfully.' });
+});
+
+// ── ADMIN TEAM MANAGEMENT ─────────────────────────────────────
+// List all admins (super admin only)
+app.get('/api/admins', authMiddleware, adminMiddleware, async (req, res) => {
+  const admins = await dbAll('SELECT id,name,email,created_at,is_super FROM admins ORDER BY created_at');
+  res.json(admins);
+});
+
+// Create new admin (super admin only)
+app.post('/api/admins', authMiddleware, adminMiddleware, async (req, res) => {
+  if (!req.user.isSuper) return res.status(403).json({ ok: false, msg: 'Only the super admin can create new admins.' });
+  const { name, email, password } = req.body;
+  if (!name || !email || !password) return res.status(400).json({ ok: false, msg: 'Name, email and password are required.' });
+  if (password.length < 8) return res.status(400).json({ ok: false, msg: 'Password must be at least 8 characters.' });
+  const em = email.trim().toLowerCase();
+  const existing = await dbGet('SELECT id FROM admins WHERE email=$1', [em]);
+  if (existing) return res.status(409).json({ ok: false, msg: 'An admin with this email already exists.' });
+  const aid = 'adm' + uid();
+  await dbRun('INSERT INTO admins (id,name,email,pass_hash,created_at,is_super) VALUES ($1,$2,$3,$4,$5,$6)',
+    [aid, name.trim(), em, hash(password), new Date().toISOString(), false]);
+  await auditLog('ADMIN_CREATED', req.user.id, 'admin', `${name} (${em})`);
+  res.json({ ok: true, id: aid, msg: `Admin account created for ${name}.` });
+});
+
+// Delete admin (super admin only, cannot delete self)
+app.delete('/api/admins/:aid', authMiddleware, adminMiddleware, async (req, res) => {
+  if (!req.user.isSuper) return res.status(403).json({ ok: false, msg: 'Only the super admin can delete admins.' });
+  if (req.params.aid === req.user.id) return res.status(400).json({ ok: false, msg: 'You cannot delete your own account.' });
+  const adm = await dbGet('SELECT * FROM admins WHERE id=$1', [req.params.aid]);
+  if (!adm) return res.status(404).json({ ok: false, msg: 'Admin not found.' });
+  if (adm.is_super) return res.status(400).json({ ok: false, msg: 'Cannot delete the super admin account.' });
+  await dbRun('DELETE FROM admins WHERE id=$1', [req.params.aid]);
+  await dbRun('UPDATE sessions SET revoked=true WHERE user_id=$1', [req.params.aid]);
+  await auditLog('ADMIN_DELETED', req.user.id, 'admin', adm.email);
+  res.json({ ok: true, msg: 'Admin account removed.' });
 });
 
 app.get('/api/audit-log', authMiddleware, adminMiddleware, async (req, res) => {
