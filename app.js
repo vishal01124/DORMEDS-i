@@ -242,7 +242,7 @@ const A = {
     const el=Q('#pc');if(!el)return;
     const pg=this.st.page,role=this.st.role;
     const mp={
-      admin:{dashboard:()=>this.rAdminDash(),pharmacies:()=>this.rPharmacies(),documentation:()=>this.rAdminDocs(),orders:()=>this.rAdminOrders(),subscriptions:()=>this.rSubs(),billing:()=>this.rAdminBilling(),returns:()=>this.rAdminReturns(),support:()=>this.rAdminSupport(),analytics:()=>this.rAnalytics(),audit:()=>this.rAudit(),profile:()=>this.rProfile()},
+      admin:{dashboard:()=>this.rAdminDash(),pharmacies:()=>this.rPharmacies(),documentation:()=>this.rAdminDocs(),orders:()=>this.rAdminOrders(),subscriptions:()=>this.rSubs(),billing:()=>this.rAdminBilling(),returns:()=>this.rAdminReturns(),support:()=>this.rAdminSupport(),analytics:()=>this.rAnalytics(),audit:()=>this.rAudit(),admins:()=>this.rAdminTeam(),profile:()=>this.rProfile()},
       pharmacy:{dashboard:()=>this.rPhDash(),inventory:()=>this.rInventory(),orders:()=>this.rPhOrders(),documentation:()=>this.rPhDocs(),billing:()=>this.rPhBilling(),subscriptions:()=>this.rPhSubs(),returns:()=>this.rPhReturns(),support:()=>this.rPhSupport(),profile:()=>this.rProfile()}
     };
     el.innerHTML=(mp[role]?.[pg]||mp[role]?.dashboard)();
@@ -251,6 +251,7 @@ const A = {
       if(pg==='profile')this.loadSessions();
       if(pg==='analytics'&&role==='admin')this.loadAnalytics();
       if(pg==='audit'&&role==='admin')this.loadAudit();
+      if(pg==='admins'&&role==='admin')this.loadAdminTeam();
     },50);
   },
 
@@ -327,7 +328,8 @@ const A = {
 
   navAdmin(){
     const d=this.data;const po=d.orders.filter(o=>o.type==='inventory'&&o.status==='pending').length;const pr=d.returns.filter(r=>r.status==='pending').length;const ub=d.bills.filter(b=>b.status==='unpaid').length;
-    return this.navSec('Overview',[{p:'dashboard',i:'dashboard',l:'Dashboard'},{p:'pharmacies',i:'storefront',l:'Pharmacies'}])+this.navSec('Operations',[{p:'documentation',i:'description',l:'Documentation'},{p:'orders',i:'shopping_cart',l:'Orders',b:po||undefined}])+this.navSec('Finance',[{p:'subscriptions',i:'card_membership',l:'Subscriptions'},{p:'billing',i:'receipt_long',l:'Billing',b:ub||undefined},{p:'returns',i:'assignment_return',l:'Returns',b:pr||undefined}])+this.navSec('Help',[{p:'support',i:'support_agent',l:'Support'}])+this.navSec('Admin',[{p:'analytics',i:'bar_chart',l:'SaaS Analytics'},{p:'audit',i:'security',l:'Audit Log'},{p:'profile',i:'manage_accounts',l:'My Account'}]);
+    const isSuper=this.st.user?.isSuper;
+    return this.navSec('Overview',[{p:'dashboard',i:'dashboard',l:'Dashboard'},{p:'pharmacies',i:'storefront',l:'Pharmacies'}])+this.navSec('Operations',[{p:'documentation',i:'description',l:'Documentation'},{p:'orders',i:'shopping_cart',l:'Orders',b:po||undefined}])+this.navSec('Finance',[{p:'subscriptions',i:'card_membership',l:'Subscriptions'},{p:'billing',i:'receipt_long',l:'Billing',b:ub||undefined},{p:'returns',i:'assignment_return',l:'Returns',b:pr||undefined}])+this.navSec('Help',[{p:'support',i:'support_agent',l:'Support'}])+this.navSec('Admin',[{p:'analytics',i:'bar_chart',l:'SaaS Analytics'},{p:'audit',i:'security',l:'Audit Log'},...(isSuper?[{p:'admins',i:'supervised_user_circle',l:'Admin Team'}]:[]),{p:'profile',i:'manage_accounts',l:'My Account'}]);
   },
   navPh(){
     const phId=this.st.user.phId;const d=this.data;
