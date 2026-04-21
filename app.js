@@ -183,17 +183,32 @@ const A = {
     if (_demoMode) {
       const match = Object.values(DEMO_CREDS).find(c => c.email === em.toLowerCase() && c.pw === pw);
       if(btn){btn.disabled=false;btn.innerHTML='<span class="material-icons-round">login</span>Sign In';}
-      if (!match) { this.toast('Invalid credentials. Try admin@pharmadist.com / admin123','err'); return; }
+      if (!match) { this.toast('Invalid credentials','err'); return; }
       this._token = 'demo_' + Date.now();
       localStorage.setItem('pd_token', this._token);
       localStorage.setItem('pd_user', JSON.stringify(match.user));
       this.st.user = match.user; this.st.role = match.user.role; this.st.page = 'dashboard';
       this.render();
-      this.toast('Welcome, '+match.user.name+'! (Demo Mode) 👋','ok');
+      this.toast('Welcome, '+match.user.name+'! 👋','ok');
       return;
     }
 
-    const res = await apiPost('/login', {role, email:em, password:pw, rememberMe:rem, device:'Web Browser'});
+    // Try login with selected role first
+    let res = await apiPost('/login', {role, email:em, password:pw, rememberMe:rem, device:'Web Browser'});
+
+    // If selected role fails, auto-try the other role (helps admins who click wrong tab)
+    if (!res?.ok && res?.msg?.toLowerCase().includes('invalid')) {
+      const otherRole = role === 'admin' ? 'pharmacy' : 'admin';
+      const res2 = await apiPost('/login', {role:otherRole, email:em, password:pw, rememberMe:rem, device:'Web Browser'});
+      if (res2?.ok) {
+        res = res2;
+        // Correct the tab UI to match actual role
+        this._lr = otherRole;
+        Q('#tab-a')?.classList.toggle('active', otherRole==='admin');
+        Q('#tab-p')?.classList.toggle('active', otherRole==='pharmacy');
+      }
+    }
+
     if(btn){btn.disabled=false;btn.innerHTML='<span class="material-icons-round">login</span>Sign In';}
     if (!res) { this.toast('Server error – is the backend running?','err'); return; }
     if (res.ok) {
@@ -208,7 +223,11 @@ const A = {
       this.render();
       this.toast('Welcome back, '+res.user.name+'! 👋','ok');
     } else {
-      this.toast(res.msg || 'Invalid credentials','err');
+      // Give a helpful error message
+      const hint = role==='admin'
+        ? 'Make sure the Admin tab is selected and you are using the admin email & password.'
+        : 'Make sure the Pharmacy tab is selected and your account is approved.';
+      this.toast(res.msg || 'Invalid credentials','err',hint);
     }
   },
 
@@ -279,7 +298,8 @@ const A = {
   },
   setLmode(m){this._lmode=m;Q('#app').innerHTML=this.rLogin();this.attachLogin();},
   _rSignIn(){return`<div class="llogo"><div class="licon"><span class="material-icons-round">local_pharmacy</span></div><div><div class="lh">Welcome Back</div><span class="ls">Sign in to PharmaDist Pro</span></div></div>
-    <div class="ltabs"><button class="ltab active" id="tab-a" onclick="A.fillDemo('admin')"><span class="material-icons-round">admin_panel_settings</span>Admin</button><button class="ltab" id="tab-p" onclick="A.fillDemo('pharmacy')"><span class="material-icons-round">storefront</span>Pharmacy</button></div>
+    <div class="ltabs"><button class="ltab active" id="tab-a" onclick="A.setRole('admin')"><span class="material-icons-round">admin_panel_settings</span>Admin</button><button class="ltab" id="tab-p" onclick="A.setRole('pharmacy')"><span class="material-icons-round">storefront</span>Pharmacy</button></div>
+    <div id="role-hint" style="font-size:.75rem;color:var(--acc);margin:-6px 0 10px;padding:5px 10px;background:rgba(108,99,255,.1);border-radius:6px;display:flex;align-items:center;gap:5px"><span class="material-icons-round" style="font-size:14px">admin_panel_settings</span>Signing in as <strong>Admin</strong> — use your admin email &amp; password</div>
     <div class="fg"><label>Email Address</label><input id="lem" type="email" placeholder="Enter your email" autocomplete="email"></div>
     <div class="fg pwrap"><label>Password</label><input id="lpw" type="password" placeholder="Enter your password" autocomplete="current-password" onkeypress="if(event.key==='Enter')A.login(A._lr||'admin')"><button class="pw-toggle" onclick="A.togglePw('lpw',this)"><span class="material-icons-round">visibility</span></button></div>
     <div class="lrow"><label class="lcheck"><input type="checkbox" id="lrm"> <span>Remember me for 30 days</span></label><button class="link-btn" onclick="A.setLmode('forgot')">Forgot password?</button></div>
@@ -306,9 +326,17 @@ const A = {
     <div style="text-align:center;margin-top:16px"><button class="link-btn" onclick="A.setLmode('signin')">← Back to Sign In</button></div>`;},
   _lr:'admin',
   attachLogin(){Q('#lpw')?.addEventListener('keypress',e=>{if(e.key==='Enter')this.login(this._lr);});},
-  fillDemo(r){
-    this._lr=r;Q('#tab-a').classList.toggle('active',r==='admin');Q('#tab-p').classList.toggle('active',r==='pharmacy');
+  setRole(r){
+    this._lr=r;
+    Q('#tab-a')?.classList.toggle('active',r==='admin');
+    Q('#tab-p')?.classList.toggle('active',r==='pharmacy');
+    const hint=Q('#role-hint');
+    if(hint){
+      if(r==='admin')hint.innerHTML='<span class="material-icons-round" style="font-size:14px">admin_panel_settings</span>Signing in as <strong>Admin</strong> — use your admin email &amp; password';
+      else hint.innerHTML='<span class="material-icons-round" style="font-size:14px">storefront</span>Signing in as <strong>Pharmacy</strong> — use your pharmacy email &amp; password';
+    }
   },
+  fillDemo(r){this.setRole(r);},
 
   rShell(){
     const a=this.st.role==='admin';
