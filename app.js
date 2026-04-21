@@ -21,11 +21,9 @@ const API = (() => {
 })();
 let _demoMode = false;
 
-// Demo credentials & seed data
-const DEMO_CREDS = {
-  admin:{email:'admin@pharmadist.com',pw:'admin123',user:{id:'admin',name:'Admin',email:'admin@pharmadist.com',role:'admin',init:'AD'}},
-  pharmacy:{email:'citypharma@demo.com',pw:'pharmacy123',user:{id:'ph1',name:'City Pharma',email:'citypharma@demo.com',role:'pharmacy',init:'C',phId:'ph1'}}
-};
+// No demo credentials — only real accounts work
+const DEMO_CREDS = {};
+
 const DEMO_SEED = {
   dist:{name:'PharmaDist Pro',address:'100 Industrial Area, Pune, MH 411057',phone:'+91 20 1234 5678',mobile:'+91 99887 76655',email:'support@pharmadist.com',gst:'27ABCDE1234F1Z5',license:'MH-DIST-2020-001'},
   pharmacies:[
@@ -282,11 +280,10 @@ const A = {
   setLmode(m){this._lmode=m;Q('#app').innerHTML=this.rLogin();this.attachLogin();},
   _rSignIn(){return`<div class="llogo"><div class="licon"><span class="material-icons-round">local_pharmacy</span></div><div><div class="lh">Welcome Back</div><span class="ls">Sign in to PharmaDist Pro</span></div></div>
     <div class="ltabs"><button class="ltab active" id="tab-a" onclick="A.fillDemo('admin')"><span class="material-icons-round">admin_panel_settings</span>Admin</button><button class="ltab" id="tab-p" onclick="A.fillDemo('pharmacy')"><span class="material-icons-round">storefront</span>Pharmacy</button></div>
-    <div class="fg"><label>Email Address</label><input id="lem" type="email" placeholder="Enter your email" value="admin@pharmadist.com" autocomplete="email"></div>
-    <div class="fg pwrap"><label>Password</label><input id="lpw" type="password" placeholder="Enter your password" value="admin123" autocomplete="current-password" onkeypress="if(event.key==='Enter')A.login(A._lr||'admin')"><button class="pw-toggle" onclick="A.togglePw('lpw',this)"><span class="material-icons-round">visibility</span></button></div>
+    <div class="fg"><label>Email Address</label><input id="lem" type="email" placeholder="Enter your email" autocomplete="email"></div>
+    <div class="fg pwrap"><label>Password</label><input id="lpw" type="password" placeholder="Enter your password" autocomplete="current-password" onkeypress="if(event.key==='Enter')A.login(A._lr||'admin')"><button class="pw-toggle" onclick="A.togglePw('lpw',this)"><span class="material-icons-round">visibility</span></button></div>
     <div class="lrow"><label class="lcheck"><input type="checkbox" id="lrm"> <span>Remember me for 30 days</span></label><button class="link-btn" onclick="A.setLmode('forgot')">Forgot password?</button></div>
     <button class="btn btn-p btn-lg" id="lbtn" style="width:100%;justify-content:center" onclick="A.login(A._lr||'admin')"><span class="material-icons-round">login</span>Sign In</button>
-    <div class="demo-row"><button class="demo-btn" onclick="A.fillDemo('admin')">⚡ Admin Demo</button><button class="demo-btn" onclick="A.fillDemo('pharmacy')">⚡ Pharmacy Demo</button></div>
     <div style="text-align:center;margin-top:16px;font-size:.875rem;color:var(--mute)">New pharmacy? <button class="link-btn" onclick="A.setLmode('register')">Create an account →</button></div>`;},
   _rRegister(){return`<div class="llogo"><div class="licon" style="background:linear-gradient(135deg,#00D48E,#0099FF)"><span class="material-icons-round">storefront</span></div><div><div class="lh">Create Account</div><span class="ls">Register your pharmacy</span></div></div>
     <div class="fg"><label>Pharmacy Name *</label><input id="rn" placeholder="e.g. City MediCenter" autocomplete="organization"></div>
@@ -311,8 +308,6 @@ const A = {
   attachLogin(){Q('#lpw')?.addEventListener('keypress',e=>{if(e.key==='Enter')this.login(this._lr);});},
   fillDemo(r){
     this._lr=r;Q('#tab-a').classList.toggle('active',r==='admin');Q('#tab-p').classList.toggle('active',r==='pharmacy');
-    Q('#lem').value=r==='admin'?'admin@pharmadist.com':'citypharma@demo.com';
-    Q('#lpw').value=r==='admin'?'admin123':'pharmacy123';
   },
 
   rShell(){
