@@ -233,14 +233,16 @@ async function initDB() {
     );
   `);
 
-  // Seed first admin from env vars
-  const adminExists = await dbGet('SELECT 1 FROM admins LIMIT 1');
-  if (!adminExists) {
-    await dbRun(
-      'INSERT INTO admins (id,name,email,pass_hash,created_at,is_super) VALUES ($1,$2,$3,$4,$5,$6)',
-      ['admin', 'Admin', ADMIN_EMAIL.toLowerCase(), hash(ADMIN_PASSWORD), new Date().toISOString(), true]
-    );
-  }
+  // Always upsert super admin from env vars — stays in sync when env vars change
+  await dbRun(`
+    INSERT INTO admins (id, name, email, pass_hash, created_at, is_super)
+    VALUES ($1, $2, $3, $4, $5, true)
+    ON CONFLICT (id) DO UPDATE SET
+      email    = EXCLUDED.email,
+      pass_hash= EXCLUDED.pass_hash,
+      is_super = true
+  `, ['admin', 'Admin', ADMIN_EMAIL.toLowerCase(), hash(ADMIN_PASSWORD), new Date().toISOString()]);
+  console.log('✅ Super admin synced:', ADMIN_EMAIL);
 
   // Seed dist info
   const distExists = await dbGet('SELECT 1 as x FROM dist_info LIMIT 1');
