@@ -16,9 +16,15 @@ for /f "tokens=5" %%a in ('netstat -ano ^| findstr :5000 ^| findstr LISTENING 2^
 :: Set PATH so node can be found
 set PATH=C:\Program Files\nodejs;%PATH%
 
+:: Connect to Railway PostgreSQL (live database)
+set DATABASE_URL=postgresql://postgres:SaCnffbRJGuLCFzKFFrwHgstQEDeyvUY@shinkansen.proxy.rlwy.net:19969/railway
+set JWT_SECRET=pharmadist_super_secret_2026_xyz789abc
+set NODE_ENV=production
+
 :: Change to server directory
 cd /d "C:\Users\Vishal\10000\server"
 
+echo  Connecting to Railway PostgreSQL database...
 echo  Server starting on http://localhost:5000
 echo.
 echo  Opening browser in 3 seconds...
@@ -27,7 +33,7 @@ echo.
 :: Open browser after 3 second delay
 start "" cmd /c "timeout /t 3 /nobreak >nul && start http://localhost:5000"
 
-:: Start the server (this keeps the window open)
+:: Start the server
 echo  Press Ctrl+C to stop the server.
 echo  =========================================
 echo.
