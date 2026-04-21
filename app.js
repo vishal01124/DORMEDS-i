@@ -215,8 +215,9 @@ const A = {
   },
 
   logout(){
-    if (!confirm('Log out?')) return;
-    apiPost('/logout', {}).catch(()=>{});
+    // Fire logout API in background — don't wait for it or block on it
+    try { apiPost('/logout',{}).catch(()=>{}); } catch(_){}
+    // Immediately clear local state
     localStorage.removeItem('pd_token'); localStorage.removeItem('pd_user');
     this._token = null;
     this.killCharts(); this.closeModal();
@@ -225,6 +226,7 @@ const A = {
     this.st.filt={}; this.st.params={};
     this.data={pharmacies:[],drugs:[],orders:[],bills:[],returns:[],tickets:[],notifs:[],chats:[],dist:this.data.dist};
     this.render();
+    this.toast('Signed out successfully.','ok');
   },
 
   nav(p){this.killCharts();this.closeModal();this.st.page=p;this.renderPage();QA('.ni').forEach(e=>e.classList.toggle('active',e.dataset.page===p));if(window.innerWidth<900)this.closeSidebar();},
