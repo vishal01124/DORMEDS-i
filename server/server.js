@@ -1,4 +1,4 @@
-// ─────────────────────────────────────────────────────────────
+﻿// ─────────────────────────────────────────────────────────────
 //  PharmaDist Pro – Secure Backend Server v4.0
 //  JWT Auth | Rate Limiting | Helmet | Audit | Email | SSE
 //  Database: PostgreSQL (via pg driver) | nodemailer
@@ -691,6 +691,20 @@ app.post('/api/change-password', authMiddleware, async (req, res) => {
   await auditLog('PASSWORD_CHANGED', req.user.id, 'pharmacy', '');
   res.json({ ok: true, msg: 'Password changed successfully.' });
 });
+
+// ── DISTRIBUTOR SETTINGS ──────────────────────────────────────
+let distSettings = {};
+
+app.get('/api/dist-settings', authMiddleware, adminMiddleware, (req, res) => {
+  res.json(distSettings);
+});
+
+app.post('/api/dist-settings', authMiddleware, adminMiddleware, (req, res) => {
+  const allowed = ['name','phone','mobile','email','upi','gst','license','address'];
+  allowed.forEach(k => { if (req.body[k] !== undefined) distSettings[k] = req.body[k]; });
+  res.json({ ok: true, settings: distSettings });
+});
+
 
 // ── ADMIN TEAM MANAGEMENT ─────────────────────────────────────
 // List all admins (super admin only)
