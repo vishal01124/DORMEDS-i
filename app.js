@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 //  PharmaDist Pro — Frontend App (Dual Mode)
 //  Server Mode: Full JWT auth via backend API
 //  Demo Mode:   localStorage (GitHub Pages / offline)
@@ -489,7 +489,31 @@ const A = {
     this.showModal('Edit: '+p.name,`<div class="fr"><div class="fg"><label>Name</label><input id="en" value="${p.name}"></div><div class="fg"><label>License</label><input id="el" value="${p.license}"></div></div><div class="fg"><label>Address</label><textarea id="ea">${p.address}</textarea></div><div class="fr"><div class="fg"><label>Contact</label><input id="ec" value="${p.contact}"></div><div class="fg"><label>Email</label><input id="ee" value="${p.email}"></div></div><div class="fr"><div class="fg"><label>Status</label><select id="es"><option value="active"${p.status==='active'?' selected':''}>Active</option><option value="pending"${p.status==='pending'?' selected':''}>Pending</option><option value="suspended"${p.status==='suspended'?' selected':''}>Suspended</option></select></div><div class="fg"><label>Plan</label><select id="ep2"><option value="">No Plan</option><option value="1000"${p.plan==='1000'?' selected':''}>₹1000/mo – Paid Delivery</option><option value="1300"${p.plan==='1300'?' selected':''}>₹1500/mo – Free Delivery</option></select></div></div><div class="fg" style="flex-direction:row;align-items:center;gap:10px;border:1px solid var(--bdr);padding:12px;border-radius:var(--rs);background:var(--inp)"><input type="checkbox" id="ew"${p.waived?' checked':''} style="width:auto"><label for="ew" style="margin-bottom:0;cursor:pointer">Waive subscription fee</label></div>`,
     `<button class="btn btn-er btn-sm" onclick="A.delPh('${id}')">Delete</button><button class="btn btn-s" onclick="A.closeModal()">Cancel</button><button class="btn btn-p" onclick="A.updPh('${id}')">Update</button>`);
   },
-  updPh(id){const p=this.data.pharmacies.find(ph=>ph.id===id);if(!p)return;p.name=Q('#en').value;p.license=Q('#el').value;p.address=Q('#ea').value;p.contact=Q('#ec').value;p.email=Q('#ee').value;p.status=Q('#es').value;p.plan=Q('#ep2').value||null;p.waived=Q('#ew').checked;this.save();this.closeModal();this.toast('Updated!','ok');this.nav('pharmacies');},
+  async updPh(id){
+    const p=this.data.pharmacies.find(ph=>ph.id===id);if(!p)return;
+    const updated={
+      name:Q('#en').value.trim(),
+      license:Q('#el').value.trim(),
+      address:Q('#ea').value.trim(),
+      contact:Q('#ec').value.trim(),
+      email:Q('#ee').value.trim(),
+      status:Q('#es').value,
+      plan:Q('#ep2').value||null,
+      planExpiry:Q('#ep2').value?'2026-12-31':null,
+      waived:Q('#ew').checked,
+      docs:p.docs||[]
+    };
+    const res=await apiPut('/pharmacies/'+id, updated);
+    if(res?.ok){
+      Object.assign(p, updated);
+      this.save();
+      this.closeModal();
+      this.toast('✔ '+updated.name+' updated — Status: '+updated.status,'ok');
+      this.nav('pharmacies');
+    } else {
+      this.toast('Failed to update – server error','err');
+    }
+  },
   delPh(id){if(!confirm('Delete pharmacy?'))return;this.data.pharmacies=this.data.pharmacies.filter(p=>p.id!==id);this.save();this.closeModal();this.toast('Deleted','warn');this.nav('pharmacies');},
   phDetail(id){
     const p=this.data.pharmacies.find(ph=>ph.id===id);if(!p)return;const bills=this.data.bills.filter(b=>b.phId===id);const spent=bills.filter(b=>b.status==='paid').reduce((s,b)=>s+b.amt,0);
