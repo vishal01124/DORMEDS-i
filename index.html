@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 <!-- Main styles & app -->
-<link rel="manifest" href="/manifest.json">
+<link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#6C63FF">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -81,8 +81,16 @@
     }, 600);
   });
   // Register service worker for PWA
+  // Register service worker for PWA (relative path works for both Railway and GitHub Pages)
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').then(r => console.log('SW registered:', r.scope)).catch(e => console.warn('SW failed:', e));
+    // First unregister any stale service workers, then register fresh
+    navigator.serviceWorker.getRegistrations().then(regs => {
+      regs.forEach(r => r.unregister());
+    }).then(() => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(r => console.log('SW registered:', r.scope))
+        .catch(e => console.warn('SW failed:', e));
+    });
   }
 </script>
 </body>
