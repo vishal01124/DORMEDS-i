@@ -55,14 +55,13 @@ if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
     port: smtpPort,
     secure: true,   // always SSL for Gmail
     auth: { user: SMTP_USER, pass: SMTP_PASS },
-    connectionTimeout: 8000,   // 8s connect timeout
-    greetingTimeout:  8000,    // 8s greeting timeout
-    socketTimeout:    10000,   // 10s socket timeout
+    connectionTimeout: 8000,
+    greetingTimeout:  8000,
+    socketTimeout:    10000,
     tls: { rejectUnauthorized: false },
   });
-  mailer.verify()
-    .then(() => console.log('✅ Email (SMTP) connected via port', smtpPort))
-    .catch(e => { console.warn('⚠️  Email verify failed:', e.message); mailer = null; });
+  // Don't verify on startup — just log config and let sendMail handle errors
+  console.log(`📧 Email configured: ${SMTP_USER} via ${SMTP_HOST}:${smtpPort}`);
 } else {
   console.log('ℹ️  Email not configured — password reset returns token in JSON (demo mode).');
 }
