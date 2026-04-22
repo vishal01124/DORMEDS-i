@@ -48,20 +48,34 @@ const APP_URL   = process.env.APP_URL   || 'https://web-production-e4fbb.up.rail
 
 let mailer = null;
 if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
+  // Use port 465 (SSL) for Gmail — Railway blocks outbound 587 (STARTTLS)
+  const smtpPort = SMTP_PORT === 587 ? 465 : SMTP_PORT;
   mailer = nodemailer.createTransport({
-    host: SMTP_HOST, port: SMTP_PORT,
-    secure: SMTP_PORT === 465,
+    host: SMTP_HOST,
+    port: smtpPort,
+    secure: true,   // always SSL for Gmail
     auth: { user: SMTP_USER, pass: SMTP_PASS },
+    connectionTimeout: 8000,   // 8s connect timeout
+    greetingTimeout:  8000,    // 8s greeting timeout
+    socketTimeout:    10000,   // 10s socket timeout
+    tls: { rejectUnauthorized: false },
   });
-  mailer.verify().then(() => console.log('✅ Email (SMTP) connected')).catch(e => console.warn('⚠️  Email not configured:', e.message));
+  mailer.verify()
+    .then(() => console.log('✅ Email (SMTP) connected via port', smtpPort))
+    .catch(e => { console.warn('⚠️  Email verify failed:', e.message); mailer = null; });
 } else {
-  console.log('ℹ️  Email not configured (SMTP_HOST/USER/PASS not set) — password reset will return token in JSON.');
+  console.log('ℹ️  Email not configured — password reset returns token in JSON (demo mode).');
 }
 
 async function sendMail(to, subject, html) {
   if (!mailer) return false;
   try {
-    await mailer.sendMail({ from: `"PharmaDist Pro" <${SMTP_FROM}>`, to, subject, html });
+    // 12-second overall timeout to prevent hanging
+    const result = await Promise.race([
+      mailer.sendMail({ from: `"PharmaDist Pro" <${SMTP_FROM}>`, to, subject, html }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('Email timeout after 12s')), 12000)),
+    ]);
+    console.log('📧 Email sent to', to, '— messageId:', result.messageId);
     return true;
   } catch (e) {
     console.error('Email send error:', e.message);
