@@ -38,49 +38,64 @@ if (JWT_SECRET === 'pharmadist_jwt_secret_2026_change_in_production!') {
   console.warn('⚠️  WARNING: Using default JWT_SECRET! Set JWT_SECRET env var before going live.');
 }
 
-// ── Email (nodemailer) ────────────────────────────────────────
+// ── Email Config ─────────────────────────────────────────────
+// Primary: Resend API (HTTP — works on Railway, no SMTP port issues)
+// Fallback: nodemailer SMTP
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const SMTP_HOST = process.env.SMTP_HOST || '';
-const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
+const SMTP_PORT = parseInt(process.env.SMTP_PORT || '465');
 const SMTP_USER = process.env.SMTP_USER || '';
 const SMTP_PASS = process.env.SMTP_PASS || '';
 const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER || 'noreply@pharmadist.com';
 const APP_URL   = process.env.APP_URL   || 'https://web-production-e4fbb.up.railway.app';
 
+// Set up nodemailer as fallback (if SMTP vars set)
 let mailer = null;
-if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
-  // Use port 465 (SSL) for Gmail — Railway blocks outbound 587 (STARTTLS)
-  const smtpPort = SMTP_PORT === 587 ? 465 : SMTP_PORT;
+if (!RESEND_API_KEY && SMTP_HOST && SMTP_USER && SMTP_PASS) {
   mailer = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: smtpPort,
-    secure: true,   // always SSL for Gmail
+    host: SMTP_HOST, port: SMTP_PORT, secure: true,
     auth: { user: SMTP_USER, pass: SMTP_PASS },
-    connectionTimeout: 8000,
-    greetingTimeout:  8000,
-    socketTimeout:    10000,
+    connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 10000,
     tls: { rejectUnauthorized: false },
   });
-  // Don't verify on startup — just log config and let sendMail handle errors
-  console.log(`📧 Email configured: ${SMTP_USER} via ${SMTP_HOST}:${smtpPort}`);
+  console.log(`📧 Email (SMTP/nodemailer): ${SMTP_USER} via ${SMTP_HOST}:${SMTP_PORT}`);
+} else if (RESEND_API_KEY) {
+  console.log('📧 Email (Resend API): configured ✅');
 } else {
-  console.log('ℹ️  Email not configured — password reset returns token in JSON (demo mode).');
+  console.log('ℹ️  Email not configured — password reset returns token in JSON.');
 }
 
 async function sendMail(to, subject, html) {
+  // Try Resend API first (HTTP — no port blocking)
+  if (RESEND_API_KEY) {
+    try {
+      const fromAddr = SMTP_FROM.includes('@') && !SMTP_FROM.includes('onboarding')
+        ? `PharmaDist Pro <${SMTP_FROM}>`
+        : 'PharmaDist Pro <onboarding@resend.dev>';
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: fromAddr, to: [to], subject, html }),
+        signal: AbortSignal.timeout(15000),
+      });
+      const data = await res.json();
+      if (res.ok) { console.log('📧 Resend email sent to', to, '— id:', data.id); return true; }
+      console.error('Resend API error:', data);
+      return false;
+    } catch (e) { console.error('Resend send error:', e.message); return false; }
+  }
+  // Fallback: nodemailer SMTP
   if (!mailer) return false;
   try {
-    // 12-second overall timeout to prevent hanging
     const result = await Promise.race([
       mailer.sendMail({ from: `"PharmaDist Pro" <${SMTP_FROM}>`, to, subject, html }),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('Email timeout after 12s')), 12000)),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('SMTP timeout 12s')), 12000)),
     ]);
-    console.log('📧 Email sent to', to, '— messageId:', result.messageId);
+    console.log('📧 SMTP email sent to', to, '— id:', result.messageId);
     return true;
-  } catch (e) {
-    console.error('Email send error:', e.message);
-    return false;
-  }
+  } catch (e) { console.error('SMTP send error:', e.message); return false; }
 }
+
 
 
 // ── Middleware ────────────────────────────────────────────────
