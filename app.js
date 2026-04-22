@@ -375,9 +375,9 @@ const A = {
   _rForgot(){return`<div class="llogo"><div class="licon" style="background:linear-gradient(135deg,#FFB547,#FF6B35)"><span class="material-icons-round">lock_reset</span></div><div><div class="lh">Reset Password</div><span class="ls">Enter your pharmacy email</span></div></div>
     <div id="forgot-form"><div class="fg"><label>Email Address</label><input id="fem" type="email" placeholder="your@pharmacy.com" autocomplete="email"></div>
     <button class="btn btn-p btn-lg" style="width:100%;justify-content:center" onclick="A.forgotPassword()"><span class="material-icons-round">send</span>Send Reset Token</button></div>
-    <div id="reset-form" style="display:none">
+    <div id="reset-form" style="display:none"><div id="reset-hint"></div>
     <div class="ai info" style="margin-bottom:14px"><span class="material-icons-round ai-icon">key</span><div class="ai-txt"><strong>Reset Token (Demo Mode)</strong><span>In production this is emailed. Copy the token below and paste it.</span></div></div>
-    <div class="fg"><label>Reset Token</label><textarea id="rtoken" style="font-family:monospace;font-size:.75rem;resize:none;min-height:60px" placeholder="Paste token here…"></textarea></div>
+    <div id="rtoken-wrap"><div class="fg"><label>Reset Token</label><textarea id="rtoken" style="font-family:monospace;font-size:.75rem;resize:none;min-height:60px" placeholder="Paste token here…"></textarea></div>
     <div class="fg pwrap"><label>New Password</label><input id="rnpw" type="password" placeholder="Min. 8 characters" oninput="A.pwStrength(this.value,'ps-fill2')"><button class="pw-toggle" onclick="A.togglePw('rnpw',this)"><span class="material-icons-round">visibility</span></button></div>
     <div id="ps-bar2" style="height:4px;border-radius:2px;background:var(--bdr);margin:-12px 0 14px;overflow:hidden"><div id="ps-fill2" style="height:100%;width:0;transition:all .3s;border-radius:2px"></div></div>
     <button class="btn btn-ok btn-lg" style="width:100%;justify-content:center" onclick="A.resetPassword()"><span class="material-icons-round">lock_reset</span>Reset Password</button></div>
@@ -840,12 +840,23 @@ const A = {
   async forgotPassword(){
     const em=Q('#fem')?.value.trim();
     if(!em){this.toast('Enter your email address','err');return;}
+    const btn=Q('#fpbtn');if(btn){btn.disabled=true;btn.textContent='Sending...';}
     const res=await apiPost('/forgot-password',{email:em});
-    if(!res){this.toast('Server error','err');return;}
-    this.toast('Reset token generated!','ok');
+    if(btn){btn.disabled=false;btn.innerHTML='<span class="material-icons-round">email</span>Send Reset Link';}
+    if(!res){this.toast('Server error - try again','err');return;}
     const ff=Q('#forgot-form'),rf=Q('#reset-form');
-    if(ff)ff.style.display='none';if(rf)rf.style.display='block';
-    if(res.resetToken&&Q('#rtoken'))Q('#rtoken').value=res.resetToken;
+    const hint=Q('#reset-hint');
+    if(res.resetToken){
+      if(ff)ff.style.display='none';if(rf)rf.style.display='block';
+      if(Q('#rtoken'))Q('#rtoken').value=res.resetToken;
+      if(hint)hint.innerHTML='<div style="padding:12px;background:rgba(255,181,71,.1);border:1px solid rgba(255,181,71,.4);border-radius:8px;font-size:.8rem;color:var(--warn);margin-bottom:14px"><strong>Email could not be sent</strong> - Copy the token above into the field and set your new password.</div>';
+      this.toast('Use the token shown to reset your password','warn');
+    } else if(res.ok){
+      if(ff)ff.style.display='none';if(rf)rf.style.display='block';
+      const tw=Q('#rtoken-wrap');if(tw)tw.style.display='none';
+      if(hint)hint.innerHTML='<div style="padding:12px;background:rgba(0,212,142,.08);border:1px solid rgba(0,212,142,.3);border-radius:8px;font-size:.8rem;color:var(--ok);margin-bottom:14px">\u2714 Reset link sent to <strong>'+em+'</strong> - Check your inbox and click the link in the email.</div>';
+      this.toast('Reset link sent to '+em,'ok');
+    }
   },
 
   async resetPassword(){

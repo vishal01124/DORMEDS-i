@@ -1,4 +1,4 @@
-﻿// ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
 //  PharmaDist Pro – Secure Backend Server v4.0
 //  JWT Auth | Rate Limiting | Helmet | Audit | Email | SSE
 //  Database: PostgreSQL (via pg driver) | nodemailer
@@ -358,8 +358,11 @@ async function initDB() {
       token TEXT UNIQUE NOT NULL,
       expires_at TEXT NOT NULL,
       used BOOLEAN DEFAULT false,
-      created_at TEXT
+      created_at TEXT,
+      user_type TEXT DEFAULT 'pharmacy'
     );
+    -- Add user_type column if missing (migration)
+    ALTER TABLE password_resets ADD COLUMN IF NOT EXISTS user_type TEXT DEFAULT 'pharmacy';
 
     CREATE TABLE IF NOT EXISTS audit_log (
       id TEXT PRIMARY KEY,
@@ -589,13 +592,23 @@ app.post('/api/forgot-password', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ ok: false, msg: 'Email is required.' });
   const em = email.trim().toLowerCase();
-  const ph = await dbGet('SELECT id, name FROM pharmacies WHERE email=$1', [em]);
-  if (!ph) return res.json({ ok: true, msg: 'If that email is registered, a reset link has been sent.' });
+
+  // Check pharmacies first, then admins
+  let user = await dbGet('SELECT id, name FROM pharmacies WHERE email=$1', [em]);
+  let userType = 'pharmacy';
+  if (!user) {
+    user = await dbGet('SELECT id, name FROM admins WHERE email=$1', [em]);
+    userType = 'admin';
+  }
+  // Always respond the same to prevent email enumeration
+  if (!user) return res.json({ ok: true, msg: 'If that email is registered, a reset link has been sent.' });
+
   const resetToken = crypto.randomBytes(32).toString('hex');
   const expiresAt  = new Date(Date.now() + 60 * 60 * 1000).toISOString();
   await dbRun('DELETE FROM password_resets WHERE email=$1', [em]);
-  await dbRun('INSERT INTO password_resets (email,token,expires_at,created_at) VALUES ($1,$2,$3,$4)', [em, resetToken, expiresAt, new Date().toISOString()]);
-  await auditLog('PASSWORD_RESET_REQUEST', ph.id, 'pharmacy', em);
+  await dbRun('INSERT INTO password_resets (email,token,expires_at,created_at,user_type) VALUES ($1,$2,$3,$4,$5)',
+    [em, resetToken, expiresAt, new Date().toISOString(), userType]);
+  await auditLog('PASSWORD_RESET_REQUEST', user.id, userType, em);
 
   const resetLink = `${APP_URL}/?reset=${resetToken}`;
   const emailHtml = `
@@ -606,25 +619,25 @@ app.post('/api/forgot-password', async (req, res) => {
       <p style="color:rgba(255,255,255,.8);margin:0;font-size:.875rem">Password Reset Request</p>
     </div>
     <div style="padding:32px;color:#E8F0FE">
-      <p style="margin:0 0 16px">Hi <strong>${ph.name}</strong>,</p>
-      <p style="margin:0 0 24px;color:#7B9CC4;line-height:1.6">We received a request to reset your password. Click the button below to set a new password. This link expires in <strong>1 hour</strong>.</p>
+      <p style="margin:0 0 16px">Hi <strong>${user.name}</strong>,</p>
+      <p style="margin:0 0 24px;color:#7B9CC4;line-height:1.6">We received a request to reset your ${userType} account password. Click the button below to set a new password. This link expires in <strong>1 hour</strong>.</p>
       <div style="text-align:center;margin:24px 0">
         <a href="${resetLink}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#6C63FF,#00D4FF);color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:1rem">Reset Password</a>
       </div>
-      <p style="margin:24px 0 0;font-size:.8rem;color:#4A6080">If you didn't request this, ignore this email — your password won't change.</p>
+      <p style="margin:24px 0 0;font-size:.8rem;color:#4A6080">If you didn't request this, ignore this email.</p>
       <p style="margin:8px 0 0;font-size:.8rem;color:#4A6080">Or copy this link: <a href="${resetLink}" style="color:#6C63FF">${resetLink}</a></p>
     </div>
     <div style="background:#080C18;padding:16px;text-align:center;font-size:.75rem;color:#4A6080">
-      &copy; 2026 PharmaDist Pro &nbsp;&middot;&nbsp; This is an automated message.
+      &copy; 2026 PharmaDist Pro &nbsp;&middot;&nbsp; Automated message.
     </div>
   </div>`;
 
   const sent = await sendMail(em, 'Reset your PharmaDist Pro password', emailHtml);
   if (sent) {
-    res.json({ ok: true, msg: `Password reset link sent to ${em}. Check your inbox.` });
+    res.json({ ok: true, msg: `Reset link sent to ${em}. Check your inbox (and spam folder).` });
   } else {
-    // Fallback: return token in response (demo / no SMTP)
-    res.json({ ok: true, msg: 'Reset token generated. (Email not configured — use token below in dev mode)', resetToken, demoNote: 'Set SMTP_HOST, SMTP_USER, SMTP_PASS env vars to enable real emails.' });
+    // Email not configured — return token so user can reset via UI
+    res.json({ ok: true, resetToken, msg: 'Email service unavailable. Use the token below to reset your password.' });
   }
 });
 
@@ -634,13 +647,24 @@ app.post('/api/reset-password', async (req, res) => {
   if (password.length < 8)  return res.status(400).json({ ok: false, msg: 'Password must be at least 8 characters.' });
   const reset = await dbGet('SELECT * FROM password_resets WHERE token=$1 AND used=false', [token]);
   if (!reset) return res.status(400).json({ ok: false, msg: 'Invalid or already-used reset token.' });
-  if (new Date(reset.expires_at) < new Date()) return res.status(400).json({ ok: false, msg: 'Reset token expired.' });
-  await dbRun('UPDATE pharmacies SET pass_hash=$1 WHERE email=$2', [hash(password), reset.email]);
+  if (new Date(reset.expires_at) < new Date()) return res.status(400).json({ ok: false, msg: 'Reset token has expired. Request a new one.' });
+  const userType = reset.user_type || 'pharmacy';
+  if (userType === 'admin') {
+    await dbRun('UPDATE admins SET pass_hash=$1 WHERE email=$2', [hash(password), reset.email]);
+  } else {
+    await dbRun('UPDATE pharmacies SET pass_hash=$1 WHERE email=$2', [hash(password), reset.email]);
+  }
   await dbRun('UPDATE password_resets SET used=true WHERE token=$1', [token]);
-  const ph = await dbGet('SELECT id FROM pharmacies WHERE email=$1', [reset.email]);
-  if (ph) await dbRun('UPDATE sessions SET revoked=true WHERE user_id=$1', [ph.id]);
-  await auditLog('PASSWORD_RESET_SUCCESS', reset.email, 'pharmacy', '');
-  res.json({ ok: true, msg: 'Password reset successfully. Please sign in with your new password.' });
+  // Revoke all active sessions for this user
+  const user = await dbGet(
+    userType === 'admin'
+      ? 'SELECT id FROM admins WHERE email=$1'
+      : 'SELECT id FROM pharmacies WHERE email=$1',
+    [reset.email]
+  );
+  if (user) await dbRun('UPDATE sessions SET revoked=true WHERE user_id=$1', [user.id]);
+  await auditLog('PASSWORD_RESET_SUCCESS', reset.email, userType, '');
+  res.json({ ok: true, msg: 'Password reset successfully! Please sign in with your new password.' });
 });
 
 // ─────────────────────────────────────────────────────────────
