@@ -69,9 +69,8 @@ async function sendMail(to, subject, html) {
   // Try Resend API first (HTTP — no port blocking)
   if (RESEND_API_KEY) {
     try {
-      const fromAddr = SMTP_FROM.includes('@') && !SMTP_FROM.includes('onboarding')
-        ? `PharmaDist Pro <${SMTP_FROM}>`
-        : 'PharmaDist Pro <onboarding@resend.dev>';
+      // Free tier requires using onboarding@resend.dev until a domain is verified
+      const fromAddr = 'PharmaDist Pro <onboarding@resend.dev>';
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
