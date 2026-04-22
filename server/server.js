@@ -1,20 +1,21 @@
 // ─────────────────────────────────────────────────────────────
-//  PharmaDist Pro – Secure Backend Server v3.0
-//  JWT Auth | Rate Limiting | Helmet | Audit Logging | SaaS
-//  Database: PostgreSQL (via pg driver)
+//  PharmaDist Pro – Secure Backend Server v4.0
+//  JWT Auth | Rate Limiting | Helmet | Audit | Email | SSE
+//  Database: PostgreSQL (via pg driver) | nodemailer
 //  Run: node server.js
 // ─────────────────────────────────────────────────────────────
 
 'use strict';
 
-const express   = require('express');
-const cors      = require('cors');
-const crypto    = require('crypto');
-const path      = require('path');
-const jwt       = require('jsonwebtoken');
-const helmet    = require('helmet');
-const rateLimit = require('express-rate-limit');
-const { Pool }  = require('pg');
+const express      = require('express');
+const cors         = require('cors');
+const crypto       = require('crypto');
+const path         = require('path');
+const jwt          = require('jsonwebtoken');
+const helmet       = require('helmet');
+const rateLimit    = require('express-rate-limit');
+const { Pool }     = require('pg');
+const nodemailer   = require('nodemailer');
 
 const app  = express();
 const PORT = process.env.PORT || 5000;
@@ -27,17 +28,116 @@ const pool = new Pool({
     : (process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false),
 });
 
-// ── JWT Config ────────────────────────────────────────────────
+// ── JWT & Admin Config ───────────────────────────────────────
 const JWT_SECRET    = process.env.JWT_SECRET    || 'pharmadist_jwt_secret_2026_change_in_production!';
 const ADMIN_EMAIL   = process.env.ADMIN_EMAIL   || 'admin@pharmadist.com';
 const ADMIN_PASSWORD= process.env.ADMIN_PASSWORD|| 'admin123';
 
+// Warn if using default JWT secret (security risk in production)
+if (JWT_SECRET === 'pharmadist_jwt_secret_2026_change_in_production!') {
+  console.warn('⚠️  WARNING: Using default JWT_SECRET! Set JWT_SECRET env var before going live.');
+}
+
+// ── Email (nodemailer) ────────────────────────────────────────
+const SMTP_HOST = process.env.SMTP_HOST || '';
+const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
+const SMTP_USER = process.env.SMTP_USER || '';
+const SMTP_PASS = process.env.SMTP_PASS || '';
+const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER || 'noreply@pharmadist.com';
+const APP_URL   = process.env.APP_URL   || 'https://web-production-e4fbb.up.railway.app';
+
+let mailer = null;
+if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
+  mailer = nodemailer.createTransport({
+    host: SMTP_HOST, port: SMTP_PORT,
+    secure: SMTP_PORT === 465,
+    auth: { user: SMTP_USER, pass: SMTP_PASS },
+  });
+  mailer.verify().then(() => console.log('✅ Email (SMTP) connected')).catch(e => console.warn('⚠️  Email not configured:', e.message));
+} else {
+  console.log('ℹ️  Email not configured (SMTP_HOST/USER/PASS not set) — password reset will return token in JSON.');
+}
+
+async function sendMail(to, subject, html) {
+  if (!mailer) return false;
+  try {
+    await mailer.sendMail({ from: `"PharmaDist Pro" <${SMTP_FROM}>`, to, subject, html });
+    return true;
+  } catch (e) {
+    console.error('Email send error:', e.message);
+    return false;
+  }
+}
+
+
 // ── Middleware ────────────────────────────────────────────────
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
-app.use(cors({ origin: true, credentials: true }));
+
+// CORS — allow Railway, GitHub Pages, and localhost
+const ALLOWED_ORIGINS = [
+  'https://web-production-e4fbb.up.railway.app',
+  'https://vishal01124.github.io',
+  'http://localhost:5000', 'http://localhost:3000', 'http://127.0.0.1:5000',
+  ...(process.env.EXTRA_ORIGINS ? process.env.EXTRA_ORIGINS.split(',') : []),
+];
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin || ALLOWED_ORIGINS.some(o => origin.startsWith(o))) return cb(null, true);
+    cb(new Error('CORS: origin not allowed: ' + origin));
+  },
+  credentials: true,
+}));
 app.use(express.json({ limit: '2mb' }));
 
-// ── Rate Limiters ─────────────────────────────────────────────
+// ── SSE — Real-time notification clients ──────────────────────
+const sseClients = new Map(); // key: userId, value: Set of res objects
+
+function ssePush(userId, event, data) {
+  const clients = sseClients.get(userId);
+  if (clients) clients.forEach(res => {
+    try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch (_) {}
+  });
+}
+function sseBroadcastAdmin(event, data) {
+  sseClients.forEach((clients, uid) => {
+    clients.forEach(res => {
+      if (res._pharmRole === 'admin') {
+        try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch (_) {}
+      }
+    });
+  });
+}
+
+// SSE subscribe endpoint
+app.get('/api/sse', authMiddlewareSSE, (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+  res._pharmRole = req.user.role;
+  const uid = req.user.id;
+  if (!sseClients.has(uid)) sseClients.set(uid, new Set());
+  sseClients.get(uid).add(res);
+  res.write(`event: connected\ndata: {"ok":true}\n\n`);
+  const hb = setInterval(() => { try { res.write(': heartbeat\n\n'); } catch (_) { clearInterval(hb); } }, 25000);
+  req.on('close', () => {
+    clearInterval(hb);
+    sseClients.get(uid)?.delete(res);
+    if (sseClients.get(uid)?.size === 0) sseClients.delete(uid);
+  });
+});
+
+// SSE auth middleware (non-blocking — doesn't call next on fail for SSE)
+function authMiddlewareSSE(req, res, next) {
+  const token = req.query.token || (req.headers.authorization || '').replace('Bearer ', '');
+  if (!token) return res.status(401).end();
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch { res.status(401).end(); }
+}
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, max: 50,
   standardHeaders: true, legacyHeaders: false,
@@ -443,13 +543,42 @@ app.post('/api/forgot-password', async (req, res) => {
   if (!email) return res.status(400).json({ ok: false, msg: 'Email is required.' });
   const em = email.trim().toLowerCase();
   const ph = await dbGet('SELECT id, name FROM pharmacies WHERE email=$1', [em]);
-  if (!ph) return res.json({ ok: true, msg: 'If that email is registered, a reset token has been generated.' });
+  if (!ph) return res.json({ ok: true, msg: 'If that email is registered, a reset link has been sent.' });
   const resetToken = crypto.randomBytes(32).toString('hex');
   const expiresAt  = new Date(Date.now() + 60 * 60 * 1000).toISOString();
   await dbRun('DELETE FROM password_resets WHERE email=$1', [em]);
   await dbRun('INSERT INTO password_resets (email,token,expires_at,created_at) VALUES ($1,$2,$3,$4)', [em, resetToken, expiresAt, new Date().toISOString()]);
   await auditLog('PASSWORD_RESET_REQUEST', ph.id, 'pharmacy', em);
-  res.json({ ok: true, msg: 'Reset token generated.', resetToken, demoNote: 'In production this would be emailed.' });
+
+  const resetLink = `${APP_URL}/?reset=${resetToken}`;
+  const emailHtml = `
+  <div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;background:#0E1826;border-radius:12px;overflow:hidden">
+    <div style="background:linear-gradient(135deg,#6C63FF,#00D4FF);padding:32px;text-align:center">
+      <div style="font-size:36px">💊</div>
+      <h1 style="color:#fff;margin:8px 0 4px;font-size:1.5rem">PharmaDist Pro</h1>
+      <p style="color:rgba(255,255,255,.8);margin:0;font-size:.875rem">Password Reset Request</p>
+    </div>
+    <div style="padding:32px;color:#E8F0FE">
+      <p style="margin:0 0 16px">Hi <strong>${ph.name}</strong>,</p>
+      <p style="margin:0 0 24px;color:#7B9CC4;line-height:1.6">We received a request to reset your password. Click the button below to set a new password. This link expires in <strong>1 hour</strong>.</p>
+      <div style="text-align:center;margin:24px 0">
+        <a href="${resetLink}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#6C63FF,#00D4FF);color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:1rem">Reset Password</a>
+      </div>
+      <p style="margin:24px 0 0;font-size:.8rem;color:#4A6080">If you didn't request this, ignore this email — your password won't change.</p>
+      <p style="margin:8px 0 0;font-size:.8rem;color:#4A6080">Or copy this link: <a href="${resetLink}" style="color:#6C63FF">${resetLink}</a></p>
+    </div>
+    <div style="background:#080C18;padding:16px;text-align:center;font-size:.75rem;color:#4A6080">
+      &copy; 2026 PharmaDist Pro &nbsp;&middot;&nbsp; This is an automated message.
+    </div>
+  </div>`;
+
+  const sent = await sendMail(em, 'Reset your PharmaDist Pro password', emailHtml);
+  if (sent) {
+    res.json({ ok: true, msg: `Password reset link sent to ${em}. Check your inbox.` });
+  } else {
+    // Fallback: return token in response (demo / no SMTP)
+    res.json({ ok: true, msg: 'Reset token generated. (Email not configured — use token below in dev mode)', resetToken, demoNote: 'Set SMTP_HOST, SMTP_USER, SMTP_PASS env vars to enable real emails.' });
+  }
 });
 
 app.post('/api/reset-password', async (req, res) => {
@@ -899,14 +1028,17 @@ async function main() {
   await initDB();
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log('\n' + '═'.repeat(52));
-    console.log('  🔒 PharmaDist Pro — Secure Server v3.0');
+    const line = '═'.repeat(54);
+    console.log('\n' + line);
+    console.log('  🔒 PharmaDist Pro — Secure Server v4.0');
     console.log(`  🌐 http://localhost:${PORT}`);
-    console.log('  ✅ PostgreSQL | JWT Auth | Rate Limiting');
-    console.log('  ⚙️  JWT_SECRET: ' + (process.env.JWT_SECRET ? 'from ENV ✅' : 'default (set in prod!)'));
+    console.log('  ✅ PostgreSQL | JWT Auth | Rate Limiting | SSE');
+    console.log('  📧 Email: ' + (mailer ? 'SMTP configured ✅' : 'not configured (demo mode)'));
+    console.log('  🔒 JWT_SECRET: ' + (process.env.JWT_SECRET ? 'from ENV ✅' : 'DEFAULT ⚠️  (set in prod!)'));
     console.log('  🗄️  DB: ' + (process.env.DATABASE_URL ? 'Railway PostgreSQL ✅' : 'LOCAL — set DATABASE_URL'));
-    console.log('═'.repeat(52) + '\n');
+    console.log(line + '\n');
   });
 }
 
 main().catch(e => { console.error('Failed to start:', e); process.exit(1); });
+

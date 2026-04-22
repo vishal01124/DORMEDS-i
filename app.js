@@ -99,6 +99,7 @@ async function apiDel(path) { return apiFetch(path, {method:'DELETE'}); }
 const A = {
   _token: null,
   _lmode: 'signin',
+  _sse: null,
   st:{user:null,role:null,page:'login',params:{},filt:{},charts:{}},
   data:{pharmacies:[],drugs:[],orders:[],bills:[],returns:[],tickets:[],notifs:[],chats:[],dist:{},products:[]},
 
@@ -134,6 +135,7 @@ const A = {
             this.st.role = this.st.user.role;
             this.st.page = 'dashboard';
             await this.loadAll();
+            this.connectSSE();
           } else {
             localStorage.removeItem('pd_token'); localStorage.removeItem('pd_user');
             this._token = null;
@@ -142,6 +144,40 @@ const A = {
       }
     }
     this.render();
+  },
+
+  // Real-time SSE connection
+  connectSSE(){
+    if (!API || _demoMode || !this._token) return;
+    if (this._sse) { try { this._sse.close(); } catch(_){} }
+    const url = API + '/sse?token=' + encodeURIComponent(this._token);
+    const es = new EventSource(url);
+    this._sse = es;
+    es.addEventListener('connected', () => console.log('%c🔔 SSE connected — real-time notifications active','color:#00D48E'));
+    es.addEventListener('notif', e => {
+      try {
+        const n = JSON.parse(e.data);
+        this.data.notifs.unshift(n);
+        this.toast(n.msg, n.type === 'stock' || n.type === 'expiry' ? 'warn' : 'ok');
+        // Update notification badge
+        const dot = Q('.ndot'); if (dot) dot.style.display = 'block';
+      } catch(_){}
+    });
+    es.addEventListener('order', e => {
+      try {
+        const d = JSON.parse(e.data);
+        this.toast('New order from ' + (d.phName || 'pharmacy'), 'ok', d.id);
+      } catch(_){}
+    });
+    es.onerror = () => {
+      es.close();
+      // Reconnect after 10s if still logged in
+      if (this._token) setTimeout(() => this.connectSSE(), 10000);
+    };
+  },
+
+  disconnectSSE(){
+    if (this._sse) { try { this._sse.close(); } catch(_){} this._sse = null; }
   },
 
   async loadAll(){
@@ -223,6 +259,7 @@ const A = {
       this.st.page = 'dashboard';
       this.toast('Loading data…','ok');
       await this.loadAll();
+      this.connectSSE();
       this.render();
       this.toast('Welcome back, '+res.user.name+'! 👋','ok');
     } else {
@@ -237,6 +274,8 @@ const A = {
   logout(){
     // Fire logout API in background — don't wait for it or block on it
     try { apiPost('/logout',{}).catch(()=>{}); } catch(_){}
+    // Disconnect SSE
+    this.disconnectSSE();
     // Immediately clear local state
     localStorage.removeItem('pd_token'); localStorage.removeItem('pd_user');
     this._token = null;
