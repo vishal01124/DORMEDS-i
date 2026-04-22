@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pharmacy View — PharmInv</title>
+  <meta name="description" content="Browse available medicines, check stock availability, expiry warnings and search products."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body class="app-wrap">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-logo">
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+          <path d="M4 18h4V10H4v8zm6 0h4V6h-4v12zm6 0h4v-4h-4v4z" fill="#fff"/>
+        </svg>
+      </div>
+      <span class="topbar-name">PharmInv</span>
+      <span class="topbar-tag tag-user">Pharmacy Staff</span>
+    </div>
+    <div class="topbar-right">
+      <a href="index.html" class="back-link">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+          <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Home
+      </a>
+    </div>
+  </header>
+
+  <main class="content">
+
+    <!-- Page Header + Stats -->
+    <div class="page-header-row">
+      <div>
+        <h1 class="page-title">Medicine Catalog</h1>
+        <p class="page-sub">Browse available products, check stock & expiry status</p>
+      </div>
+      <div id="last-updated" class="last-updated"></div>
+    </div>
+
+    <!-- Alert Banners -->
+    <div id="alert-banners"></div>
+
+    <!-- Summary stats -->
+    <div class="stats-bar" id="user-stats" style="margin-bottom:24px;">
+      <div class="stat-item">
+        <div class="stat-label">Total Products</div>
+        <div class="stat-value stat-indigo" id="u-stat-total">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">In Stock</div>
+        <div class="stat-value stat-emerald" id="u-stat-instock">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Low Stock</div>
+        <div class="stat-value stat-amber" id="u-stat-low">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Out of Stock</div>
+        <div class="stat-value stat-red" id="u-stat-out">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Near Expiry</div>
+        <div class="stat-value stat-orange" id="u-stat-expiry">—</div>
+      </div>
+    </div>
+
+    <!-- Search + Filter Bar -->
+    <div class="filter-bar">
+      <div class="search-wrap" style="flex:1;max-width:400px;">
+        <svg class="search-icon" width="18" height="18" fill="none" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+          <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <input type="text" id="search-input" placeholder="Search medicines by name or category…" oninput="filterProducts()"/>
+      </div>
+      <select id="filter-cat" onchange="filterProducts()" class="filter-select">
+        <option value="">All Categories</option>
+      </select>
+      <select id="filter-status" onchange="filterProducts()" class="filter-select">
+        <option value="">All Status</option>
+        <option value="instock">✅ In Stock</option>
+        <option value="low">⚠️ Low Stock</option>
+        <option value="outofstock">❌ Out of Stock</option>
+        <option value="expiring">⏰ Near Expiry</option>
+        <option value="expired">🚫 Expired</option>
+      </select>
+      <button class="btn btn-outline btn-sm" onclick="loadProducts()" title="Refresh">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+          <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Refresh
+      </button>
+    </div>
+
+    <!-- Results count -->
+    <div id="results-count" class="results-count" style="display:none;"></div>
+
+    <!-- Products Grid -->
+    <div id="products-container">
+      <div class="loader"><div class="spinner"></div> Loading products…</div>
+    </div>
+
+  </main>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Supabase SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="user.js"></script>
+</body>
+</html>

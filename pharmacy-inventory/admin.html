@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Panel — PharmInv</title>
+  <meta name="description" content="Secure Admin Panel for PharmInv. Manage medicine inventory with add, edit, delete, stock alerts and expiry warnings."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body class="app-wrap">
+
+  <!-- ═══════════════════════════════════════════════
+       LOGIN GATE
+  ════════════════════════════════════════════════ -->
+  <div id="login-gate" class="login-gate">
+    <div class="bg-blob blob-1"></div>
+    <div class="bg-blob blob-2"></div>
+    <div class="login-card">
+      <div class="logo-ring" style="width:52px;height:52px;margin-bottom:20px;">
+        <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+          <rect width="52" height="52" rx="16" fill="url(#lg2)"/>
+          <path d="M15 24h6v14h-6zM23 18h6v20h-6zM31 12h6v26h-6z" fill="#fff" opacity=".95"/>
+          <defs>
+            <linearGradient id="lg2" x1="0" y1="0" x2="52" y2="52">
+              <stop offset="0%" stop-color="#6366f1"/>
+              <stop offset="100%" stop-color="#8b5cf6"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <h1 class="login-title">Admin Login</h1>
+      <p class="login-sub">Sign in to manage your pharmacy inventory</p>
+
+      <form id="login-form" autocomplete="off">
+        <div class="form-group" style="margin-bottom:16px;">
+          <label for="login-email">Email Address</label>
+          <div class="input-icon-wrap">
+            <svg class="input-icon" width="16" height="16" fill="none" viewBox="0 0 24 24">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <polyline points="22,6 12,13 2,6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <input type="email" id="login-email" placeholder="admin@example.com" required autocomplete="email"/>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:24px;">
+          <label for="login-password">Password</label>
+          <div class="input-icon-wrap">
+            <svg class="input-icon" width="16" height="16" fill="none" viewBox="0 0 24 24">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke="currentColor" stroke-width="2"/>
+              <path d="M7 11V7a5 5 0 0110 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <input type="password" id="login-password" placeholder="Your password" required autocomplete="current-password"/>
+          </div>
+        </div>
+        <div id="login-error" class="login-error" style="display:none;"></div>
+        <button type="submit" class="btn btn-primary" id="login-btn" style="width:100%;justify-content:center;padding:14px;">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+            <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="10 17 15 12 10 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="15" y1="12" x2="3" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          Sign In
+        </button>
+      </form>
+
+      <a href="index.html" class="back-link" style="margin-top:20px;display:inline-flex;gap:6px;align-items:center;font-size:.85rem;">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+          <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Back to Home
+      </a>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       MAIN DASHBOARD (shown after login)
+  ════════════════════════════════════════════════ -->
+  <div id="dashboard" style="display:none;">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-logo">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+            <path d="M4 18h4V10H4v8zm6 0h4V6h-4v12zm6 0h4v-4h-4v4z" fill="#fff"/>
+          </svg>
+        </div>
+        <span class="topbar-name">PharmInv</span>
+        <span class="topbar-tag tag-admin">Admin</span>
+      </div>
+      <div class="topbar-right">
+        <span id="admin-email-display" style="font-size:.82rem;color:var(--muted);"></span>
+        <button class="btn btn-outline btn-sm" id="logout-btn" onclick="adminLogout()">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="16 17 21 12 16 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          Logout
+        </button>
+        <a href="index.html" class="back-link">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+            <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Home
+        </a>
+      </div>
+    </header>
+
+    <main class="content">
+
+      <!-- Stats Bar -->
+      <div class="stats-bar" id="admin-stats">
+        <div class="stat-item">
+          <div class="stat-label">Total Products</div>
+          <div class="stat-value stat-indigo" id="stat-total">—</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">In Stock</div>
+          <div class="stat-value stat-emerald" id="stat-instock">—</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Low Stock</div>
+          <div class="stat-value stat-amber" id="stat-lowstock">—</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Out of Stock</div>
+          <div class="stat-value stat-red" id="stat-outstock">—</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Near Expiry</div>
+          <div class="stat-value stat-orange" id="stat-expiry">—</div>
+        </div>
+      </div>
+
+      <!-- Add / Edit Product Form -->
+      <div class="card">
+        <h2 class="card-title">
+          <div class="card-title-icon icon-indigo">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+              <path d="M12 5v14m-7-7h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span id="form-heading">Add New Product</span>
+        </h2>
+
+        <form id="product-form" autocomplete="off">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="prod-name">Product Name <span class="req">*</span></label>
+              <input type="text" id="prod-name" placeholder="e.g. Paracetamol 500mg" required/>
+            </div>
+            <div class="form-group">
+              <label for="prod-category">Category <span class="req">*</span></label>
+              <select id="prod-category" required>
+                <option value="">Select category…</option>
+                <option value="Analgesic">Analgesic / Pain Relief</option>
+                <option value="Antibiotic">Antibiotic</option>
+                <option value="Antidiabetic">Antidiabetic</option>
+                <option value="Antihypertensive">Antihypertensive</option>
+                <option value="Antihistamine">Antihistamine</option>
+                <option value="Antifungal">Antifungal</option>
+                <option value="Antiviral">Antiviral</option>
+                <option value="Cardiovascular">Cardiovascular</option>
+                <option value="Gastrointestinal">Gastrointestinal</option>
+                <option value="Respiratory">Respiratory</option>
+                <option value="Vitamin/Supplement">Vitamin / Supplement</option>
+                <option value="Dermatology">Dermatology</option>
+                <option value="Ophthalmic">Ophthalmic</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="prod-price">Price (₹) <span class="req">*</span></label>
+              <input type="number" id="prod-price" placeholder="0.00" min="0" step="0.01" required/>
+            </div>
+            <div class="form-group">
+              <label for="prod-stock">Stock Quantity <span class="req">*</span></label>
+              <input type="number" id="prod-stock" placeholder="0" min="0" step="1" required/>
+            </div>
+            <div class="form-group">
+              <label for="prod-expiry">Expiry Date <span class="req">*</span></label>
+              <input type="date" id="prod-expiry" required/>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="submit-btn">
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+                <path d="M12 5v14m-7-7h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              </svg>
+              <span id="submit-label">Add Product</span>
+            </button>
+            <button type="button" class="btn btn-outline" id="cancel-btn" style="display:none;" onclick="cancelEdit()">Cancel</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Products Table -->
+      <div class="card">
+        <div class="card-header-row">
+          <h2 class="card-title" style="margin-bottom:0;">
+            <div class="card-title-icon icon-emerald">
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            All Products
+          </h2>
+
+          <!-- Search + Filter -->
+          <div class="table-controls">
+            <div class="search-wrap" style="max-width:260px;">
+              <svg class="search-icon" width="16" height="16" fill="none" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+                <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              <input type="text" id="admin-search" placeholder="Search products…" oninput="adminFilter()"/>
+            </div>
+            <select id="admin-filter-cat" onchange="adminFilter()" class="filter-select">
+              <option value="">All Categories</option>
+            </select>
+            <select id="admin-filter-status" onchange="adminFilter()" class="filter-select">
+              <option value="">All Status</option>
+              <option value="instock">In Stock</option>
+              <option value="low">Low Stock</option>
+              <option value="outofstock">Out of Stock</option>
+              <option value="expiring">Near Expiry</option>
+              <option value="expired">Expired</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="products-container">
+          <div class="loader"><div class="spinner"></div> Loading products…</div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ═══ EDIT MODAL ═══════════════════════════════ -->
+  <div class="modal-overlay" id="edit-modal" style="display:none;">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h3 class="modal-title">Edit Product</h3>
+        <button class="modal-close" onclick="closeEditModal()">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <form id="edit-form">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="edit-name">Product Name <span class="req">*</span></label>
+            <input type="text" id="edit-name" required/>
+          </div>
+          <div class="form-group">
+            <label for="edit-category">Category <span class="req">*</span></label>
+            <select id="edit-category" required>
+              <option value="">Select category…</option>
+              <option value="Analgesic">Analgesic / Pain Relief</option>
+              <option value="Antibiotic">Antibiotic</option>
+              <option value="Antidiabetic">Antidiabetic</option>
+              <option value="Antihypertensive">Antihypertensive</option>
+              <option value="Antihistamine">Antihistamine</option>
+              <option value="Antifungal">Antifungal</option>
+              <option value="Antiviral">Antiviral</option>
+              <option value="Cardiovascular">Cardiovascular</option>
+              <option value="Gastrointestinal">Gastrointestinal</option>
+              <option value="Respiratory">Respiratory</option>
+              <option value="Vitamin/Supplement">Vitamin / Supplement</option>
+              <option value="Dermatology">Dermatology</option>
+              <option value="Ophthalmic">Ophthalmic</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="edit-price">Price (₹) <span class="req">*</span></label>
+            <input type="number" id="edit-price" min="0" step="0.01" required/>
+          </div>
+          <div class="form-group">
+            <label for="edit-stock">Stock Quantity <span class="req">*</span></label>
+            <input type="number" id="edit-stock" min="0" step="1" required/>
+          </div>
+          <div class="form-group">
+            <label for="edit-expiry">Expiry Date <span class="req">*</span></label>
+            <input type="date" id="edit-expiry" required/>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" onclick="closeEditModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirm Modal -->
+  <div class="modal-overlay" id="delete-modal" style="display:none;">
+    <div class="modal" style="max-width:400px;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color:var(--red);">Delete Product</h3>
+        <button class="modal-close" onclick="closeDeleteModal()">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <p id="delete-msg" style="color:var(--muted);margin-bottom:24px;line-height:1.6;"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeDeleteModal()">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirm-delete-btn">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Supabase SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

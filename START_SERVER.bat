@@ -42,7 +42,7 @@ start "" cmd /c "timeout /t 3 /nobreak >nul && start http://localhost:5000"
 echo  Press Ctrl+C to stop the server.
 echo  =========================================
 echo.
-node server.js
+"C:\Program Files\nodejs\node.exe" server.js
 
 echo.
 echo  Server stopped.

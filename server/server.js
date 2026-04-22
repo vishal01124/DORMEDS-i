@@ -770,7 +770,10 @@ app.post('/api/chats', authMiddleware, async (req, res) => {
   res.json({ ok: true });
 });
 
-// ── SPA Catch-all ─────────────────────────────────────────────
+// ── Catch-all ─────────────────────────────────────────────────
+// Static files (including pharmacy-inventory/) are handled by
+// express.static above. This fallback sends the root index.html
+// which redirects users to /pharmacy-inventory/.
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'index.html'));
 });
