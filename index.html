@@ -3,15 +3,77 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PharmInv — Redirecting…</title>
-<meta http-equiv="refresh" content="0; url=/pharmacy-inventory/index.html">
+<title>PharmaDist Pro — B2B Pharmacy Management</title>
+<meta name="description" content="PharmaDist Pro — Secure B2B Distributor-Pharmacy Management Platform">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<!-- Main styles & app -->
+<link rel="stylesheet" href="style.css">
 <style>
-  body{font-family:system-ui,sans-serif;background:#0d1117;color:#e6edf3;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center}
-  a{color:#6366f1}
+  /* Splash shown before app JS loads */
+  #splash{
+    position:fixed;inset:0;background:#080C18;
+    display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:16px;z-index:9999;
+    transition:opacity .4s ease;
+  }
+  #splash.hide{opacity:0;pointer-events:none}
+  .splash-icon{
+    width:64px;height:64px;border-radius:18px;
+    background:linear-gradient(135deg,#6C63FF,#00D4FF);
+    display:flex;align-items:center;justify-content:center;
+    font-size:32px;color:#fff;
+    box-shadow:0 0 40px rgba(108,99,255,.5);
+    animation:pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+  .splash-title{font-family:'Inter',sans-serif;font-size:1.5rem;font-weight:800;color:#E8F0FE}
+  .splash-sub{font-family:'Inter',sans-serif;font-size:.875rem;color:#4A6080}
+  .splash-dot{width:8px;height:8px;border-radius:50%;background:#6C63FF;animation:dot 1.2s ease-in-out infinite}
+  .splash-dots{display:flex;gap:6px}
+  .splash-dot:nth-child(2){animation-delay:.2s}
+  .splash-dot:nth-child(3){animation-delay:.4s}
+  @keyframes dot{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
 </style>
 </head>
 <body>
-  <p>Redirecting… <a href="/pharmacy-inventory/index.html">Click here if not redirected</a></p>
-  <script>window.location.replace('/pharmacy-inventory/index.html');</script>
+
+<!-- Splash screen -->
+<div id="splash">
+  <div class="splash-icon"><span class="material-icons-round">local_pharmacy</span></div>
+  <div class="splash-title">PharmaDist Pro</div>
+  <div class="splash-sub">Loading secure platform…</div>
+  <div class="splash-dots">
+    <div class="splash-dot"></div>
+    <div class="splash-dot"></div>
+    <div class="splash-dot"></div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast"></div>
+<!-- Modal container -->
+<div id="mc"></div>
+<!-- Notification panel -->
+<div class="np" id="np"></div>
+<!-- Mobile sidebar overlay -->
+<div class="sov" id="sov" onclick="A.closeSidebar()"></div>
+<!-- App root -->
+<div id="app"></div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<!-- Main app -->
+<script src="app.js"></script>
+<script>
+  // Hide splash once app has initialised
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+      const s = document.getElementById('splash');
+      if (s) { s.classList.add('hide'); setTimeout(() => s.remove(), 450); }
+    }, 600);
+  });
+</script>
 </body>
 </html>

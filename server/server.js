@@ -231,6 +231,16 @@ async function initDB() {
       created_at TEXT,
       is_super BOOLEAN DEFAULT false
     );
+
+    CREATE TABLE IF NOT EXISTS products (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      price REAL NOT NULL DEFAULT 0,
+      stock INTEGER NOT NULL DEFAULT 0,
+      expiry_date TEXT NOT NULL,
+      created_at TEXT
+    );
   `);
 
   // Always upsert super admin from env vars — stays in sync when env vars change
@@ -334,6 +344,29 @@ async function initDB() {
     // Seed chat
     await dbRun("INSERT INTO chats(from_role,text,time) VALUES ($1,$2,$3)",
       ['support','Hello! Welcome to PharmaDist Support. How can we help?','09:00 AM']);
+  }
+
+  // Seed products (always seed if table is empty so catalog is never blank)
+  const prodExists = await dbGet('SELECT 1 as x FROM products LIMIT 1');
+  if (!prodExists) {
+    const now = new Date().toISOString();
+    const prodData = [
+      ['prod_seed_01','Paracetamol 500mg Tablets','Analgesic',3.50,500,'2026-12-31'],
+      ['prod_seed_02','Amoxicillin 250mg Capsules','Antibiotic',12.00,200,'2026-09-30'],
+      ['prod_seed_03','Metformin 500mg Tablets','Antidiabetic',5.00,350,'2027-03-15'],
+      ['prod_seed_04','Atorvastatin 10mg Tablets','Statin',18.00,150,'2026-07-31'],
+      ['prod_seed_05','Omeprazole 20mg Capsules','PPI',6.50,80,'2026-05-20'],
+      ['prod_seed_06','Cetirizine 10mg Tablets','Antihistamine',2.50,0,'2027-01-10'],
+      ['prod_seed_07','Azithromycin 500mg Tablets','Antibiotic',65.00,120,'2026-11-30'],
+      ['prod_seed_08','Losartan 50mg Tablets','Antihypertensive',25.00,60,'2026-06-15'],
+    ];
+    for (const [id,name,category,price,stock,expiry_date] of prodData) {
+      await dbRun(
+        'INSERT INTO products (id,name,category,price,stock,expiry_date,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING',
+        [id, name, category, price, stock, expiry_date, now]
+      );
+    }
+    console.log('✅ Products seeded (8 sample items)');
   }
 }
 
@@ -770,10 +803,82 @@ app.post('/api/chats', authMiddleware, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── PRODUCTS ──────────────────────────────────────────────────
+// Public: anyone can read products
+app.get('/api/products', async (req, res) => {
+  try {
+    const { category, search } = req.query;
+    let sql = 'SELECT * FROM products';
+    const params = [];
+    const conds = [];
+    if (category && category !== 'all') {
+      params.push(category);
+      conds.push(`category=$${params.length}`);
+    }
+    if (search) {
+      params.push(`%${search.toLowerCase()}%`);
+      conds.push(`LOWER(name) LIKE $${params.length}`);
+    }
+    if (conds.length) sql += ' WHERE ' + conds.join(' AND ');
+    sql += ' ORDER BY created_at DESC';
+    const rows = await dbAll(sql, params);
+    res.json(rows);
+  } catch (e) {
+    console.error('GET /api/products error:', e.message);
+    res.status(500).json({ ok: false, msg: 'Database error' });
+  }
+});
+
+// Admin: create product
+app.post('/api/products', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { name, category, price, stock, expiry_date } = req.body;
+    if (!name || !category || price == null || stock == null || !expiry_date)
+      return res.status(400).json({ ok: false, msg: 'All fields are required.' });
+    const pid = 'prod_' + uid();
+    await dbRun(
+      'INSERT INTO products (id,name,category,price,stock,expiry_date,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [pid, name.trim(), category.trim(), parseFloat(price), parseInt(stock), expiry_date, new Date().toISOString()]
+    );
+    await auditLog('PRODUCT_CREATED', req.user.id, 'admin', name);
+    res.json({ ok: true, id: pid });
+  } catch (e) {
+    console.error('POST /api/products error:', e.message);
+    res.status(500).json({ ok: false, msg: 'Database error' });
+  }
+});
+
+// Admin: update product
+app.put('/api/products/:pid', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { name, category, price, stock, expiry_date } = req.body;
+    await dbRun(
+      'UPDATE products SET name=$1,category=$2,price=$3,stock=$4,expiry_date=$5 WHERE id=$6',
+      [name.trim(), category.trim(), parseFloat(price), parseInt(stock), expiry_date, req.params.pid]
+    );
+    await auditLog('PRODUCT_UPDATED', req.user.id, 'admin', req.params.pid);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('PUT /api/products error:', e.message);
+    res.status(500).json({ ok: false, msg: 'Database error' });
+  }
+});
+
+// Admin: delete product
+app.delete('/api/products/:pid', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    await dbRun('DELETE FROM products WHERE id=$1', [req.params.pid]);
+    await auditLog('PRODUCT_DELETED', req.user.id, 'admin', req.params.pid);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('DELETE /api/products error:', e.message);
+    res.status(500).json({ ok: false, msg: 'Database error' });
+  }
+});
+
 // ── Catch-all ─────────────────────────────────────────────────
-// Static files (including pharmacy-inventory/) are handled by
-// express.static above. This fallback sends the root index.html
-// which redirects users to /pharmacy-inventory/.
+// Static files are handled by express.static above.
+// This fallback sends the root index.html.
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'index.html'));
 });

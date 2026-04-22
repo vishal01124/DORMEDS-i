@@ -100,7 +100,7 @@ const A = {
   _token: null,
   _lmode: 'signin',
   st:{user:null,role:null,page:'login',params:{},filt:{},charts:{}},
-  data:{pharmacies:[],drugs:[],orders:[],bills:[],returns:[],tickets:[],notifs:[],chats:[],dist:{}},
+  data:{pharmacies:[],drugs:[],orders:[],bills:[],returns:[],tickets:[],notifs:[],chats:[],dist:{},products:[]},
 
   async init(){
     // Try connecting to server
@@ -169,6 +169,9 @@ const A = {
       const drugs = await apiGet('/drugs');
       if (drugs) this.data.drugs = drugs;
     }
+    // Load public products catalog
+    const prods = await apiGet('/products');
+    if (prods) this.data.products = prods;
   },
 
   save(){ demoSave(); },
@@ -241,7 +244,7 @@ const A = {
     const np = Q('#np'); if (np) np.classList.remove('open');
     this.st.user=null; this.st.role=null; this.st.page='login';
     this.st.filt={}; this.st.params={};
-    this.data={pharmacies:[],drugs:[],orders:[],bills:[],returns:[],tickets:[],notifs:[],chats:[],dist:this.data.dist};
+    this.data={pharmacies:[],drugs:[],orders:[],bills:[],returns:[],tickets:[],notifs:[],chats:[],dist:this.data.dist,products:[]};
     this.render();
     this.toast('Signed out successfully.','ok');
   },
@@ -261,7 +264,7 @@ const A = {
     const el=Q('#pc');if(!el)return;
     const pg=this.st.page,role=this.st.role;
     const mp={
-      admin:{dashboard:()=>this.rAdminDash(),pharmacies:()=>this.rPharmacies(),documentation:()=>this.rAdminDocs(),orders:()=>this.rAdminOrders(),subscriptions:()=>this.rSubs(),billing:()=>this.rAdminBilling(),returns:()=>this.rAdminReturns(),support:()=>this.rAdminSupport(),analytics:()=>this.rAnalytics(),audit:()=>this.rAudit(),admins:()=>this.rAdminTeam(),profile:()=>this.rProfile()},
+      admin:{dashboard:()=>this.rAdminDash(),pharmacies:()=>this.rPharmacies(),documentation:()=>this.rAdminDocs(),orders:()=>this.rAdminOrders(),subscriptions:()=>this.rSubs(),billing:()=>this.rAdminBilling(),returns:()=>this.rAdminReturns(),support:()=>this.rAdminSupport(),analytics:()=>this.rAnalytics(),audit:()=>this.rAudit(),admins:()=>this.rAdminTeam(),products:()=>this.rAdminProducts(),profile:()=>this.rProfile()},
       pharmacy:{dashboard:()=>this.rPhDash(),inventory:()=>this.rInventory(),orders:()=>this.rPhOrders(),documentation:()=>this.rPhDocs(),billing:()=>this.rPhBilling(),subscriptions:()=>this.rPhSubs(),returns:()=>this.rPhReturns(),support:()=>this.rPhSupport(),profile:()=>this.rProfile()}
     };
     el.innerHTML=(mp[role]?.[pg]||mp[role]?.dashboard)();
@@ -271,6 +274,7 @@ const A = {
       if(pg==='analytics'&&role==='admin')this.loadAnalytics();
       if(pg==='audit'&&role==='admin')this.loadAudit();
       if(pg==='admins'&&role==='admin')this.loadAdminTeam();
+      if(pg==='products'&&role==='admin')this.loadAdminProducts();
     },50);
   },
 
@@ -354,7 +358,7 @@ const A = {
   navAdmin(){
     const d=this.data;const po=d.orders.filter(o=>o.type==='inventory'&&o.status==='pending').length;const pr=d.returns.filter(r=>r.status==='pending').length;const ub=d.bills.filter(b=>b.status==='unpaid').length;
     const isSuper=this.st.user?.isSuper;
-    return this.navSec('Overview',[{p:'dashboard',i:'dashboard',l:'Dashboard'},{p:'pharmacies',i:'storefront',l:'Pharmacies'}])+this.navSec('Operations',[{p:'documentation',i:'description',l:'Documentation'},{p:'orders',i:'shopping_cart',l:'Orders',b:po||undefined}])+this.navSec('Finance',[{p:'subscriptions',i:'card_membership',l:'Subscriptions'},{p:'billing',i:'receipt_long',l:'Billing',b:ub||undefined},{p:'returns',i:'assignment_return',l:'Returns',b:pr||undefined}])+this.navSec('Help',[{p:'support',i:'support_agent',l:'Support'}])+this.navSec('Admin',[{p:'analytics',i:'bar_chart',l:'SaaS Analytics'},{p:'audit',i:'security',l:'Audit Log'},...(isSuper?[{p:'admins',i:'supervised_user_circle',l:'Admin Team'}]:[]),{p:'profile',i:'manage_accounts',l:'My Account'}]);
+    return this.navSec('Overview',[{p:'dashboard',i:'dashboard',l:'Dashboard'},{p:'pharmacies',i:'storefront',l:'Pharmacies'}])+this.navSec('Catalog',[{p:'products',i:'inventory_2',l:'Products Catalog'}])+this.navSec('Operations',[{p:'documentation',i:'description',l:'Documentation'},{p:'orders',i:'shopping_cart',l:'Orders',b:po||undefined}])+this.navSec('Finance',[{p:'subscriptions',i:'card_membership',l:'Subscriptions'},{p:'billing',i:'receipt_long',l:'Billing',b:ub||undefined},{p:'returns',i:'assignment_return',l:'Returns',b:pr||undefined}])+this.navSec('Help',[{p:'support',i:'support_agent',l:'Support'}])+this.navSec('Admin',[{p:'analytics',i:'bar_chart',l:'SaaS Analytics'},{p:'audit',i:'security',l:'Audit Log'},...(isSuper?[{p:'admins',i:'supervised_user_circle',l:'Admin Team'}]:[]),{p:'profile',i:'manage_accounts',l:'My Account'}]);
   },
   navPh(){
     const phId=this.st.user.phId;const d=this.data;
@@ -851,6 +855,150 @@ const A = {
     tbody.innerHTML=res.length===0
       ?'<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--mute)">No audit events yet.</td></tr>'
       :res.map(l=>`<tr><td><span class="badge ${aC[l.action]||'b-gray'}" style="font-size:.72rem;white-space:nowrap">${l.action.replace(/_/g,' ')}</span></td><td style="font-family:monospace;font-size:.8rem;color:var(--acc)">${l.user_id}</td><td><span class="badge b-gray" style="font-size:.72rem">${l.role}</span></td><td style="font-size:.8rem;color:var(--txt2)">${l.details||'—'}</td><td style="font-size:.75rem;color:var(--mute);white-space:nowrap">${new Date(l.ts).toLocaleString('en-IN')}</td></tr>`).join('');
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  //  PRODUCTS CATALOG (Admin)
+  // ═══════════════════════════════════════════════════════════
+  rAdminProducts(){
+    return`<div class="ph"><div class="pt"><h1>Products Catalog</h1><p>Manage your medicine & product inventory visible to pharmacies.</p></div>
+    <div class="pa"><a class="btn btn-s" href="/products.html" target="_blank"><span class="material-icons-round">open_in_new</span>Public View</a><button class="btn btn-p" onclick="A.showAddProductModal()"><span class="material-icons-round">add</span>Add Product</button></div></div>
+    <div class="card" style="margin-bottom:18px">
+      <div class="ch" style="flex-wrap:wrap;gap:10px">
+        <div style="display:flex;gap:8px;align-items:center;flex:1;min-width:240px">
+          <span class="material-icons-round" style="color:var(--mute)">search</span>
+          <input id="prod-srch" type="text" placeholder="Search products…" style="border:none;background:transparent;flex:1;padding:0" oninput="A.filterProducts()">
+        </div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap">
+          <select id="prod-cat" onchange="A.filterProducts()" style="padding:5px 11px;background:var(--inp);border:1px solid var(--bdr);border-radius:var(--rs);color:var(--txt);font-family:inherit;min-width:140px">
+            <option value="all">All Categories</option>
+            <option value="Analgesic">Analgesic</option>
+            <option value="Antibiotic">Antibiotic</option>
+            <option value="Antidiabetic">Antidiabetic</option>
+            <option value="Antihypertensive">Antihypertensive</option>
+            <option value="Antihistamine">Antihistamine</option>
+            <option value="Statin">Statin</option>
+            <option value="PPI">PPI</option>
+            <option value="Antifungal">Antifungal</option>
+            <option value="Antiviral">Antiviral</option>
+            <option value="Vitamin">Vitamin</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Product Name</th><th>Category</th><th>Price (₹)</th><th>Stock</th><th>Expiry Date</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody id="prod-tbody"><tr><td colspan="8"><div class="empty"><span class="material-icons-round spin">autorenew</span><h3>Loading…</h3></div></td></tr></tbody></table></div></div>`;
+  },
+
+  async loadAdminProducts(){
+    const prods = await apiGet('/products') || this.data.products || [];
+    this.data.products = prods;
+    this._renderProdTable(prods);
+  },
+
+  filterProducts(){
+    const srch=(Q('#prod-srch')?.value||'').toLowerCase();
+    const cat=Q('#prod-cat')?.value||'all';
+    const prods=this.data.products.filter(p=>{
+      const matchCat=cat==='all'||p.category===cat;
+      const matchSrch=!srch||p.name.toLowerCase().includes(srch)||p.category.toLowerCase().includes(srch);
+      return matchCat&&matchSrch;
+    });
+    this._renderProdTable(prods);
+  },
+
+  _renderProdTable(prods){
+    const tbody=Q('#prod-tbody');if(!tbody)return;
+    const today=new Date();
+    if(!prods.length){tbody.innerHTML='<tr><td colspan="8"><div class="empty"><span class="material-icons-round">inventory_2</span><h3>No products found</h3><p>Add your first product using the button above.</p></div></td></tr>';return;}
+    tbody.innerHTML=prods.map((p,i)=>{
+      const exp=new Date(p.expiry_date);
+      const daysLeft=Math.round((exp-today)/864e5);
+      const nearExpiry=daysLeft>=0&&daysLeft<=30;
+      const expired=daysLeft<0;
+      let stockBadge=p.stock>0?'<span class="badge b-ok">In Stock</span>':'<span class="badge b-err">Out of Stock</span>';
+      let expBadge=expired?'<span class="badge b-err">Expired</span>':nearExpiry?`<span class="badge b-warn">Near Expiry (${daysLeft}d)</span>`:'<span class="badge b-ok">OK</span>';
+      const rowClass=expired?'inv-exp':nearExpiry?'inv-soon':p.stock===0?'inv-low':'';
+      return`<tr class="${rowClass}">
+        <td style="color:var(--mute);font-size:.8rem">${i+1}</td>
+        <td style="font-weight:700">${p.name}</td>
+        <td><span class="badge b-gray">${p.category}</span></td>
+        <td style="font-weight:700;color:var(--txt)">₹${(+p.price).toFixed(2)}</td>
+        <td style="font-weight:700;color:${p.stock===0?'var(--err)':p.stock<=20?'var(--warn)':'var(--txt)'}">${p.stock} units</td>
+        <td style="color:${expired?'var(--err)':nearExpiry?'var(--warn)':'var(--txt2)'}">${p.expiry_date}</td>
+        <td><div style="display:flex;flex-direction:column;gap:3px">${stockBadge}${expBadge}</div></td>
+        <td><div class="ta">
+          <button class="btn btn-sm btn-s" onclick="A.editProductModal('${p.id}')"><span class="material-icons-round" style="font-size:15px">edit</span>Edit</button>
+          <button class="btn btn-sm btn-er" onclick="A.deleteProduct('${p.id}','${p.name.replace(/'/g,"&apos;")}')"><span class="material-icons-round" style="font-size:15px">delete</span></button>
+        </div></td></tr>`;
+    }).join('');
+  },
+
+  showAddProductModal(){
+    const cats=['Analgesic','Antibiotic','Antidiabetic','Antihypertensive','Antihistamine','Statin','PPI','Antifungal','Antiviral','Vitamin','Other'];
+    this.showModal('Add New Product',
+      `<div class="fg"><label>Product Name *</label><input id="ap-name" placeholder="e.g. Paracetamol 500mg Tablets"></div>
+      <div class="fr">
+        <div class="fg"><label>Category *</label><select id="ap-cat">${cats.map(c=>`<option value="${c}">${c}</option>`).join('')}</select></div>
+        <div class="fg"><label>Price (₹) *</label><input id="ap-price" type="number" min="0" step="0.01" placeholder="0.00"></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label>Stock (units) *</label><input id="ap-stock" type="number" min="0" placeholder="0"></div>
+        <div class="fg"><label>Expiry Date *</label><input id="ap-exp" type="date"></div>
+      </div>`,
+      `<button class="btn btn-s" onclick="A.closeModal()">Cancel</button><button class="btn btn-p" id="ap-btn" onclick="A.saveProduct()"><span class="material-icons-round">save</span>Add Product</button>`
+    );
+  },
+
+  async saveProduct(){
+    const name=Q('#ap-name')?.value.trim(),cat=Q('#ap-cat')?.value,
+          price=Q('#ap-price')?.value,stock=Q('#ap-stock')?.value,exp=Q('#ap-exp')?.value;
+    if(!name||!cat||price===''||stock===''||!exp){this.toast('All fields are required','err');return;}
+    const btn=Q('#ap-btn');if(btn){btn.disabled=true;btn.innerHTML='<span class="material-icons-round spin">autorenew</span>Saving…';}
+    const res=await apiPost('/products',{name,category:cat,price:parseFloat(price),stock:parseInt(stock),expiry_date:exp});
+    if(btn){btn.disabled=false;btn.innerHTML='<span class="material-icons-round">save</span>Add Product';}
+    if(!res||!res.ok){this.toast(res?.msg||'Failed to add product','err');return;}
+    this.closeModal();
+    this.toast(name+' added!','ok');
+    await this.loadAdminProducts();
+  },
+
+  editProductModal(id){
+    const p=this.data.products.find(x=>x.id===id);if(!p)return;
+    const cats=['Analgesic','Antibiotic','Antidiabetic','Antihypertensive','Antihistamine','Statin','PPI','Antifungal','Antiviral','Vitamin','Other'];
+    this.showModal('Edit Product — '+p.name,
+      `<div class="fg"><label>Product Name *</label><input id="ep-name" value="${p.name}"></div>
+      <div class="fr">
+        <div class="fg"><label>Category *</label><select id="ep-cat">${cats.map(c=>`<option value="${c}"${p.category===c?' selected':''}>${c}</option>`).join('')}</select></div>
+        <div class="fg"><label>Price (₹) *</label><input id="ep-price" type="number" min="0" step="0.01" value="${p.price}"></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label>Stock (units) *</label><input id="ep-stock" type="number" min="0" value="${p.stock}"></div>
+        <div class="fg"><label>Expiry Date *</label><input id="ep-exp" type="date" value="${p.expiry_date}"></div>
+      </div>`,
+      `<button class="btn btn-er btn-sm" onclick="A.deleteProduct('${p.id}','${p.name.replace(/'/g,'&apos;')}')">Delete</button><button class="btn btn-s" onclick="A.closeModal()">Cancel</button><button class="btn btn-p" id="ep-btn" onclick="A.updateProduct('${id}')"><span class="material-icons-round">save</span>Update</button>`
+    );
+  },
+
+  async updateProduct(id){
+    const name=Q('#ep-name')?.value.trim(),cat=Q('#ep-cat')?.value,
+          price=Q('#ep-price')?.value,stock=Q('#ep-stock')?.value,exp=Q('#ep-exp')?.value;
+    if(!name||!cat||price===''||stock===''||!exp){this.toast('All fields are required','err');return;}
+    const btn=Q('#ep-btn');if(btn){btn.disabled=true;btn.innerHTML='<span class="material-icons-round spin">autorenew</span>Saving…';}
+    const res=await apiPut('/products/'+id,{name,category:cat,price:parseFloat(price),stock:parseInt(stock),expiry_date:exp});
+    if(btn){btn.disabled=false;btn.innerHTML='<span class="material-icons-round">save</span>Update';}
+    if(!res?.ok){this.toast('Failed to update','err');return;}
+    this.closeModal();
+    this.toast(name+' updated!','ok');
+    await this.loadAdminProducts();
+  },
+
+  async deleteProduct(id,name){
+    if(!confirm(`Delete "${name}"? This cannot be undone.`))return;
+    const res=await apiDel('/products/'+id);
+    if(res?.ok){this.toast(name+' deleted','warn');this.closeModal();await this.loadAdminProducts();}
+    else{this.toast('Delete failed','err');}
   },
 
   // ═══════════════════════════════════════════════════════════
