@@ -896,7 +896,13 @@ app.post('/api/bills', authMiddleware, async (req, res) => {
 
 app.put('/api/bills/:bid', authMiddleware, async (req, res) => {
   const d = req.body, { bid } = req.params;
-  if (d.status === 'paid') await dbRun("UPDATE bills SET status='paid', paid=$1 WHERE id=$2", [d.paid||'', bid]);
+  if (d.status === 'paid') {
+    await dbRun("UPDATE bills SET status='paid', paid=$1 WHERE id=$2", [d.paid||'', bid]);
+  } else if (d.status === 'pending_verification') {
+    // Store UTR in the paid column temporarily, and update status
+    const utrNote = `UTR:${d.utr||''}|METHOD:${d.payMethod||'UPI'}`;
+    await dbRun("UPDATE bills SET status='pending_verification', paid=$1 WHERE id=$2", [utrNote, bid]);
+  }
   res.json({ ok: true });
 });
 

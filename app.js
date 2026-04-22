@@ -25,7 +25,7 @@ let _demoMode = false;
 const DEMO_CREDS = {};
 
 const DEMO_SEED = {
-  dist:{name:'PharmaDist Pro',address:'100 Industrial Area, Pune, MH 411057',phone:'+91 20 1234 5678',mobile:'+91 99887 76655',email:'support@pharmadist.com',gst:'27ABCDE1234F1Z5',license:'MH-DIST-2020-001'},
+  dist:{name:'PharmaDist Pro',address:'100 Industrial Area, Pune, MH 411057',phone:'+91 20 1234 5678',mobile:'+91 99887 76655',email:'support@pharmadist.com',gst:'27ABCDE1234F1Z5',license:'MH-DIST-2020-001',upi:'pharmadist@okicici'},
   pharmacies:[
     {id:'ph1',name:'City Pharma',address:'45 MG Road, Bengaluru',license:'KAR-PH-2024-001',contact:'+91 98765 43210',email:'citypharma@demo.com',plan:'1500',planExpiry:'2026-12-31',waived:false,status:'active',joined:'2024-01-15',docs:[{id:'d1',name:'Drug License 2024.pdf',date:'2024-01-15',size:'245 KB'}]},
     {id:'ph2',name:'HealthPlus Pharmacy',address:'12 Park Street, Kolkata',license:'WB-PH-2024-042',contact:'+91 97654 32109',email:'healthplus@demo.com',plan:'1000',planExpiry:'2026-11-30',waived:false,status:'active',joined:'2024-03-20',docs:[]},
@@ -448,7 +448,7 @@ const A = {
   closeModal(){Q('#mc').innerHTML='';},
 
   fmt(n){return(+n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});},
-  sbadge(s){const m={active:'b-ok Active',pending:'b-warn Pending',delivered:'b-ok Delivered',approved:'b-info Approved',pending__ord:'b-warn Pending',rejected:'b-err Rejected',paid:'b-ok Paid',unpaid:'b-err Unpaid',open:'b-warn Open',closed:'b-ok Closed',suspended:'b-err Suspended'};const k=s==='pending'?'b-warn Pending':m[s]||'b-gray '+s;const[cls,...rest]=k.split(' ');return`<span class="badge ${cls}">${rest.join(' ')}</span>`;},
+  sbadge(s){const m={active:'b-ok Active',pending:'b-warn Pending',delivered:'b-ok Delivered',approved:'b-info Approved',dispatched:'b-info Dispatched',pending__ord:'b-warn Pending',rejected:'b-err Rejected',paid:'b-ok Paid',unpaid:'b-err Unpaid',pending_verification:'b-warn Verifying',open:'b-warn Open',closed:'b-ok Closed',suspended:'b-err Suspended'};const k=s==='pending'?'b-warn Pending':m[s]||'b-gray '+s;const[cls,...rest]=k.split(' ');return`<span class="badge ${cls}">${rest.join(' ')}</span>`;},
 
   // ===== ADMIN DASHBOARD =====
   rAdminDash(){
@@ -539,7 +539,7 @@ const A = {
     const b=this.data.bills;const tp=b.filter(x=>x.status==='paid').reduce((s,x)=>s+x.amt,0);const tu=b.filter(x=>x.status==='unpaid').reduce((s,x)=>s+x.amt,0);
     return`<div class="ph"><div class="pt"><h1>Billing</h1><p>All pharmacy bills and payments.</p></div><button class="btn btn-p" onclick="A.newBillModal()"><span class="material-icons-round">add</span>Create Bill</button></div>
     <div class="sg" style="grid-template-columns:repeat(3,1fr)"><div class="sc g"><div class="sic g"><span class="material-icons-round">check_circle</span></div><div><div class="sv">₹${this.fmt(tp)}</div><div class="sl2">Collected</div></div></div><div class="sc o"><div class="sic o"><span class="material-icons-round">pending_actions</span></div><div><div class="sv">₹${this.fmt(tu)}</div><div class="sl2">Pending</div></div></div><div class="sc p"><div class="sic p"><span class="material-icons-round">receipt_long</span></div><div><div class="sv">${b.length}</div><div class="sl2">Total Bills</div></div></div></div>
-    <div class="card"><div class="ch"><h3>All Bills</h3><select onchange="A.fBills(this.value)" style="padding:5px 11px;background:var(--inp);border:1px solid var(--bdr);border-radius:var(--rs);color:var(--txt);font-family:inherit"><option value="all">All</option><option value="paid">Paid</option><option value="unpaid">Unpaid</option></select></div><div class="tw"><table id="bt"><thead><tr><th>Bill ID</th><th>Pharmacy</th><th>Order</th><th>Amount</th><th>Date</th><th>Due</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead><tbody>${b.map(x=>`<tr data-s="${x.status}"><td style="font-family:monospace;font-size:.8rem">${x.id}</td><td>${x.phName}</td><td style="font-family:monospace;font-size:.8rem">${x.ordId}</td><td style="font-weight:700;color:var(--txt)">₹${this.fmt(x.amt)}</td><td>${x.date}</td><td>${x.due}</td><td><span class="badge b-gray">${x.type}</span></td><td>${x.status==='paid'?'<span class="badge b-ok">Paid</span>':'<span class="badge b-err">Unpaid</span>'}</td><td><div class="ta"><button class="btn btn-sm btn-s" onclick="A.vBill('${x.id}')">View</button>${x.status==='unpaid'?`<button class="btn btn-sm btn-ok" onclick="A.markPaid('${x.id}')">Mark Paid</button>`:''}</div></td></tr>`).join('')}</tbody></table></div></div>`;
+    <div class="card"><div class="ch"><h3>All Bills</h3><select onchange="A.fBills(this.value)" style="padding:5px 11px;background:var(--inp);border:1px solid var(--bdr);border-radius:var(--rs);color:var(--txt);font-family:inherit"><option value="all">All</option><option value="paid">Paid</option><option value="unpaid">Unpaid</option></select></div><div class="tw"><table id="bt"><thead><tr><th>Bill ID</th><th>Pharmacy</th><th>Order</th><th>Amount</th><th>Date</th><th>Due</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead><tbody>${b.map(x=>`<tr data-s="${x.status}"><td style="font-family:monospace;font-size:.8rem">${x.id}</td><td>${x.phName}</td><td style="font-family:monospace;font-size:.8rem">${x.ordId}</td><td style="font-weight:700;color:var(--txt)">₹${this.fmt(x.amt)}</td><td>${x.date}</td><td>${x.due}</td><td><span class="badge b-gray">${x.type}</span></td><td>${x.status==='paid'?'<span class="badge b-ok">Paid</span>':'<span class="badge b-err">Unpaid</span>'}</td><td><div class="ta"><button class="btn btn-sm btn-s" onclick="A.vBill('${x.id}')">View</button>${x.status==='unpaid'?`<button class="btn btn-sm btn-ok" onclick="A.markPaid('${x.id}')">Mark Paid</button>`:''}${x.status==='pending_verification'?`<button class="btn btn-sm btn-warn" onclick="A.vBill('${x.id}')">Verify UTR</button>`:''}</div></td></tr>`).join('')}</tbody></table></div></div>`;
   },
   fBills(s){QA('#bt tbody tr').forEach(r=>{r.style.display=(s==='all'||r.dataset.s===s)?'':'none';});},
   async markPaid(id){const b=this.data.bills.find(b=>b.id===id);if(!b)return;const paid=new Date().toLocaleDateString('en-CA');await apiPut('/bills/'+id,{status:'paid',paid});b.status='paid';b.paid=paid;this.toast('Bill '+id+' marked paid!','ok');this.nav('billing');},
@@ -551,7 +551,7 @@ const A = {
   vBill(id){
     const b=this.data.bills.find(b=>b.id===id);if(!b)return;
     this.showModal('Bill – '+b.id,`<div style="font-family:monospace;background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r);padding:20px"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><div><div style="font-size:1.25rem;font-weight:800;color:var(--acc)">PharmaDist Pro</div><div style="font-size:.8rem;color:var(--txt2)">${this.data.dist.address}</div><div style="font-size:.8rem;color:var(--txt2)">GST: ${this.data.dist.gst}</div></div><div style="text-align:right"><div style="font-size:1.25rem;font-weight:800">TAX INVOICE</div><div style="color:var(--mute)">${b.id}</div><div style="margin-top:4px">${b.status==='paid'?'<span class="badge b-ok" style="font-size:.875rem">PAID</span>':'<span class="badge b-err" style="font-size:.875rem">UNPAID</span>'}</div></div></div><div style="border-top:1px solid var(--bdr);padding-top:14px;margin-bottom:14px"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span>Billed To:</span><span style="font-weight:700">${b.phName}</span></div><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span>Date:</span><span>${b.date}</span></div><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span>Due:</span><span>${b.due}</span></div>${b.paid?`<div style="display:flex;justify-content:space-between"><span>Paid on:</span><span style="color:var(--ok)">${b.paid}</span></div>`:''}</div><div style="text-align:right;font-size:1.5rem;font-weight:800;color:var(--acc)">Total: ₹${this.fmt(b.amt)}</div></div>`,
-    `<button class="btn btn-s" onclick="A.closeModal()">Close</button><button class="btn btn-s" onclick="A.printBill('${b.id}')"><span class="material-icons-round">print</span>Print</button>${b.status==='unpaid'?`<button class="btn btn-ok" onclick="A.closeModal();A.markPaid('${b.id}')">Mark Paid</button>`:''}`)
+    `<button class="btn btn-s" onclick="A.closeModal()">Close</button><button class="btn btn-s" onclick="A.printBill('${b.id}')"><span class="material-icons-round">print</span>Print</button>${b.status==='unpaid'?`<button class="btn btn-ok" onclick="A.closeModal();A.markPaid('${b.id}')">Mark Paid</button>`:''}${b.status==='pending_verification'?`<div style="margin-bottom:10px;padding:10px;background:rgba(255,181,71,.1);border:1px solid var(--warn);border-radius:8px;font-size:.875rem"><strong>UTR:</strong> ${b.utr||'—'} <span class="badge b-gray" style="margin-left:6px">${b.payMethod||'UPI'}</span></div><button class="btn btn-ok" onclick="A.closeModal();A.verifyPayment('${b.id}')"><span class="material-icons-round">verified</span>Confirm Payment</button>`:''}`)
   },
 
   // ===== ADMIN RETURNS =====
@@ -716,10 +716,47 @@ const A = {
     <div class="card"><div class="ch"><h3>All Bills</h3></div><div class="tw"><table><thead><tr><th>Bill ID</th><th>Order</th><th>Amount</th><th>Date</th><th>Due</th><th>Status</th><th>Actions</th></tr></thead><tbody>${bills.map(b=>`<tr><td style="font-family:monospace;font-size:.8rem">${b.id}</td><td style="font-family:monospace;font-size:.8rem">${b.ordId}</td><td style="font-weight:700;color:var(--txt)">₹${this.fmt(b.amt)}</td><td>${b.date}</td><td>${b.due}</td><td>${b.status==='paid'?'<span class="badge b-ok">Paid</span>':'<span class="badge b-err">Unpaid</span>'}</td><td><div class="ta"><button class="btn btn-sm btn-s" onclick="A.vBill('${b.id}')">View</button>${b.status==='unpaid'?`<button class="btn btn-sm btn-ok" onclick="A.payBill('${b.id}')">Pay</button>`:''}</div></td></tr>`).join('')}${bills.length===0?'<tr><td colspan="7" style="text-align:center;color:var(--mute);padding:20px">No bills yet</td></tr>':''}</tbody></table></div></div>`;
   },
   payBill(id){
-    this.showModal('Pay Bill',`<div class="ic" style="margin-bottom:14px">${(()=>{const b=this.data.bills.find(b=>b.id===id);return`<div class="icg"><div class="if"><label>Bill ID</label><span style="font-family:monospace">${b?.id}</span></div><div class="if"><label>Amount Due</label><span style="font-size:1.25rem;font-weight:800;color:var(--acc)">₹${this.fmt(b?.amt)}</span></div><div class="if"><label>Due Date</label><span>${b?.due}</span></div></div>`;})()}</div><div class="fg"><label>Payment Method</label><select id="pm"><option>UPI (GPay/PhonePe)</option><option>NEFT/RTGS</option><option>Cheque</option><option>Cash</option></select></div><div class="fg"><label>Transaction Reference</label><input id="ptr" placeholder="UTR/Reference number"></div>`,
-    `<button class="btn btn-s" onclick="A.closeModal()">Cancel</button><button class="btn btn-ok" onclick="A.confirmPay('${id}')"><span class="material-icons-round">payment</span>Confirm Payment</button>`);
+    const b=this.data.bills.find(b=>b.id===id);if(!b)return;
+    const upi=this.data.dist.upi||'pharmadist@upi';
+    const pn=encodeURIComponent(this.data.dist.name||'PharmaDist');
+    const note=encodeURIComponent('Bill '+b.id);
+    const amt=encodeURIComponent((+b.amt).toFixed(2));
+    const upiUrl='upi://pay?pa='+encodeURIComponent(upi)+'&pn='+pn+'&am='+amt+'&cu=INR&tn='+note;
+    const qrUrl='https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=8&data='+encodeURIComponent(upiUrl);
+    const body='<div style="text-align:center;padding:4px 0 14px">'
+      +'<div style="display:inline-flex;align-items:center;gap:8px;background:rgba(108,99,255,.12);border:1px solid rgba(108,99,255,.3);border-radius:10px;padding:8px 18px;margin-bottom:14px"><span class="material-icons-round" style="color:var(--acc)">currency_rupee</span><span style="font-size:1.4rem;font-weight:800;color:var(--acc)">₹'+this.fmt(b.amt)+'</span><span style="font-size:.78rem;color:var(--mute)">'+b.id+'</span></div><br>'
+      +'<img src="'+qrUrl+'" alt="UPI QR" style="width:200px;height:200px;border-radius:12px;border:3px solid var(--acc);background:#fff;padding:4px">'
+      +'<div style="margin-top:10px;font-size:.875rem;color:var(--txt2)">Scan with <strong>GPay / PhonePe / Paytm / BHIM</strong></div>'
+      +'<div style="margin-top:8px;background:var(--inp);border-radius:8px;padding:8px 14px;display:inline-block"><div style="font-size:.68rem;color:var(--mute);margin-bottom:2px">UPI ID</div><div style="font-family:monospace;font-weight:700;color:var(--acc)">'+upi+'</div></div></div>'
+      +'<div style="margin-bottom:10px;padding:10px;background:rgba(255,181,71,.08);border:1px solid rgba(255,181,71,.3);border-radius:8px;font-size:.8rem;color:var(--warn)">After paying, enter the UTR number below so admin can verify.</div>'
+      +'<div class="fg"><label>UTR / Transaction Reference *</label><input id="ptr" placeholder="12-digit UTR or UPI Ref No." style="font-family:monospace"></div>'
+      +'<div class="fg"><label>Payment Method</label><select id="pm"><option value="UPI">UPI (GPay/PhonePe/Paytm)</option><option value="NEFT">NEFT/RTGS</option><option value="IMPS">IMPS</option><option value="Cash">Cash</option></select></div>';
+    const foot='<button class="btn btn-s" onclick="A.closeModal()">Cancel</button>'
+      +'<a href="'+upiUrl+'" class="btn btn-s" target="_blank"><span class="material-icons-round">open_in_new</span>Open UPI App</a>'
+      +'<button class="btn btn-ok" onclick="A.submitUTR('+JSON.stringify(id)+')"><span class="material-icons-round">send</span>Submit UTR</button>';
+    this.showModal('Pay via UPI',body,foot);
+  },
+  async submitUTR(id){
+    const utr=(Q('#ptr')?.value||'').trim();const pm=Q('#pm')?.value||'UPI';
+    if(!utr){this.toast('Enter UTR/Reference number','err');return;}
+    const b=this.data.bills.find(b=>b.id===id);if(!b)return;
+    await apiPut('/bills/'+id,{status:'pending_verification',utr,payMethod:pm});
+    b.status='pending_verification';b.utr=utr;b.payMethod=pm;
+    this.addNotif('payment','Payment UTR submitted for '+id+' – please verify',true);
+    this.closeModal();
+    this.toast('UTR submitted!','ok','Admin will verify and confirm your payment');
+    this.nav('billing');
   },
   async confirmPay(id){const b=this.data.bills.find(b=>b.id===id);if(!b)return;const paid=new Date().toLocaleDateString('en-CA');await apiPut('/bills/'+id,{status:'paid',paid});b.status='paid';b.paid=paid;this.closeModal();this.toast('Payment confirmed!','ok','Bill '+id+' marked as paid');this.nav('billing');},
+  async verifyPayment(id){
+    const b=this.data.bills.find(b=>b.id===id);if(!b)return;
+    const paid=new Date().toLocaleDateString('en-CA');
+    await apiPut('/bills/'+id,{status:'paid',paid});
+    b.status='paid';b.paid=paid;
+    this.addNotif('payment','Payment for '+id+' verified ✔',false,b.phId);
+    this.showBrowserNotif('Payment Verified','Bill '+id+' payment confirmed');
+    this.toast('Payment verified!','ok',id);this.nav('billing');
+  },
 
   // ===== PHARMACY SUBSCRIPTIONS =====
   rPhSubs(){
