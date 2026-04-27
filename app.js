@@ -5,9 +5,9 @@
 // ============================================================
 
 // ── 🔧 BACKEND SERVER URL ─────────────────────────────────────
-//  Render (free, always-on): https://pharmdist-pro.onrender.com
-//  Railway (paid, faster):   https://web-production-e4fbb.up.railway.app
-const RAILWAY_URL = 'https://pharmdist-pro.onrender.com';
+//  Railway (primary): https://web-production-e4fbb.up.railway.app
+//  Render  (backup):  https://pharmdist-pro.onrender.com
+const RAILWAY_URL = 'https://web-production-e4fbb.up.railway.app';
 // ─────────────────────────────────────────────────────────────
 
 const API = (() => {
