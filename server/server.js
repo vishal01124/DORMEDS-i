@@ -1235,6 +1235,30 @@ async function main() {
   pingSupabase();
   setInterval(pingSupabase, PING_INTERVAL_MS);
   console.log('💓 Supabase keep-alive scheduler started (every 3 days)');
+
+  // ── Render Self-Ping Keep-Alive ───────────────────────────────
+  // Render free tier sleeps after 15 min of inactivity.
+  // This pings own /api/health every 10 min to stay awake 24/7.
+  // Set RENDER_SELF_URL = https://pharmadist-pro.onrender.com in env vars.
+  const RENDER_SELF_URL  = process.env.RENDER_SELF_URL || '';
+  const SELF_PING_MS     = 10 * 60 * 1000; // 10 minutes
+
+  async function selfPing() {
+    if (!RENDER_SELF_URL) return; // only runs on Render
+    try {
+      const r = await fetch(`${RENDER_SELF_URL}/api/health`, {
+        signal: AbortSignal.timeout(10000),
+      });
+      console.log(`🔄 Render self-ping — status: ${r.status} — ${new Date().toISOString()}`);
+    } catch (e) {
+      console.warn('⚠️  Render self-ping failed:', e.message);
+    }
+  }
+
+  if (RENDER_SELF_URL) {
+    setInterval(selfPing, SELF_PING_MS);
+    console.log('🔄 Render self-ping keep-alive started (every 10 min) →', RENDER_SELF_URL);
+  }
 }
 
 main().catch(e => { console.error('Failed to start:', e); process.exit(1); });
