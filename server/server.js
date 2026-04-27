@@ -47,7 +47,7 @@ const SMTP_PORT = parseInt(process.env.SMTP_PORT || '465');
 const SMTP_USER = process.env.SMTP_USER || '';
 const SMTP_PASS = process.env.SMTP_PASS || '';
 const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER || 'noreply@pharmadist.com';
-const APP_URL   = process.env.APP_URL   || 'https://web-production-e4fbb.up.railway.app';
+const APP_URL   = process.env.APP_URL   || 'https://pharmdist-pro.onrender.com';
 
 // Set up nodemailer as fallback (if SMTP vars set)
 let mailer = null;
