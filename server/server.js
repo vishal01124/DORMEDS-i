@@ -47,7 +47,7 @@ const SMTP_PORT = parseInt(process.env.SMTP_PORT || '465');
 const SMTP_USER = process.env.SMTP_USER || '';
 const SMTP_PASS = process.env.SMTP_PASS || '';
 const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER || 'noreply@pharmadist.com';
-const APP_URL   = process.env.APP_URL   || 'https://web-production-e4fbb.up.railway.app';
+const APP_URL   = process.env.APP_URL   || 'https://pharmdist-pro.onrender.com';
 
 // Set up nodemailer as fallback (if SMTP vars set)
 let mailer = null;
@@ -100,9 +100,10 @@ async function sendMail(to, subject, html) {
 // ── Middleware ────────────────────────────────────────────────
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 
-// CORS — allow Railway, GitHub Pages, and localhost
+// CORS — allow Railway, Render, GitHub Pages, and localhost
 const ALLOWED_ORIGINS = [
   'https://web-production-e4fbb.up.railway.app',
+  'https://pharmdist-pro.onrender.com',
   'https://vishal01124.github.io',
   'http://localhost:5000', 'http://localhost:3000', 'http://127.0.0.1:5000',
   ...(process.env.EXTRA_ORIGINS ? process.env.EXTRA_ORIGINS.split(',') : []),

@@ -1,13 +1,13 @@
-﻿// ============================================================
+// ============================================================
 //  PharmaDist Pro — Frontend App (Dual Mode)
 //  Server Mode: Full JWT auth via backend API
 //  Demo Mode:   localStorage (GitHub Pages / offline)
 // ============================================================
 
-// ── 🔧 SET YOUR RAILWAY URL HERE (after deploying) ───────────
-//  Example: 'https://pharmadist-pro.up.railway.app'
-//  Leave as '' to use demo mode on GitHub Pages
-const RAILWAY_URL = 'https://web-production-e4fbb.up.railway.app';
+// ── 🔧 BACKEND SERVER URL ─────────────────────────────────────
+//  Render (free, always-on): https://pharmdist-pro.onrender.com
+//  Railway (paid, faster):   https://web-production-e4fbb.up.railway.app
+const RAILWAY_URL = 'https://pharmdist-pro.onrender.com';
 // ─────────────────────────────────────────────────────────────
 
 const API = (() => {
