@@ -1142,41 +1142,93 @@ const A = {
     const note=encodeURIComponent('Bill '+b.id);
     const amt=encodeURIComponent((+b.amt).toFixed(2));
     const upiUrl='upi://pay?pa='+encodeURIComponent(upi)+'&pn='+pn+'&am='+amt+'&cu=INR&tn='+note;
-    const qrUrl='https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data='+encodeURIComponent(upiUrl);
-    const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     const rupee='\u20b9';
-    const body='<div style="text-align:center;padding:4px 0 10px">'
-      +'<div style="display:inline-flex;align-items:center;gap:8px;background:rgba(108,99,255,.12);border:1px solid rgba(108,99,255,.3);border-radius:10px;padding:8px 18px;margin-bottom:12px"><span class="material-icons-round" style="color:var(--acc)">currency_rupee</span><span style="font-size:1.4rem;font-weight:800;color:var(--acc)">'+rupee+this.fmt(b.amt)+'</span><span style="font-size:.78rem;color:var(--mute)">'+b.id+'</span></div>'
-      +(isMobile?'':'<br><img src="'+qrUrl+'" alt="UPI QR" style="width:180px;height:180px;border-radius:12px;border:3px solid var(--acc);background:#fff;padding:4px"><br>')
-      +'<br><a href="'+upiUrl+'" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;background:linear-gradient(135deg,#00D48E,#1a73e8);color:#fff;font-weight:700;font-size:.95rem;padding:13px 32px;border-radius:10px;margin:8px 0 12px;box-shadow:0 4px 18px rgba(0,180,120,.4);font-family:inherit"><span class="material-icons-round">open_in_new</span>Open UPI App</a>'
-      +'<div style="margin-bottom:8px;background:var(--inp);border-radius:8px;padding:8px 14px;display:inline-flex;align-items:center;gap:10px"><div><div style="font-size:.68rem;color:var(--mute);margin-bottom:2px">UPI ID</div><div style="font-family:monospace;font-weight:700;color:var(--acc)">'+upi+'</div></div><button class="btn btn-sm btn-s" onclick="navigator.clipboard.writeText(\''+upi+'\').then(()=>A.toast(\'Copied!\',\'ok\'))"><span class="material-icons-round" style="font-size:16px">content_copy</span></button></div></div>'
-      +'<div style="margin-bottom:10px;padding:10px;background:rgba(255,181,71,.08);border:1px solid rgba(255,181,71,.3);border-radius:8px;font-size:.8rem;color:var(--warn)">After paying, enter UTR below and click Submit UTR.</div>'
-      +'<div class="fg"><label>UTR / Transaction Reference *</label><input id="ptr" placeholder="12-digit UTR or UPI Ref No." style="font-family:monospace"></div>'
-      +'<div class="fg"><label>Payment Method</label><select id="pm"><option value="UPI">UPI (GPay/PhonePe/Paytm)</option><option value="NEFT">NEFT/RTGS</option><option value="IMPS">IMPS</option><option value="Cash">Cash</option></select></div>';
-    const foot='<button class="btn btn-s" onclick="A.closeModal()">Cancel</button>'
-      +'<button class="btn btn-ok" onclick="A.submitUTR('+JSON.stringify(id)+')"><span class="material-icons-round">send</span>Submit UTR</button>';
-    this.showModal('Pay via UPI',body,foot);
+    // STEP 1 — ultra-minimal modal, just amount + big UPI button
+    const body=`<div style="text-align:center;padding:10px 0 6px">
+      <div style="font-size:.82rem;color:var(--mute);margin-bottom:6px">${b.id} &bull; Due Payment</div>
+      <div style="font-size:2.8rem;font-weight:900;color:var(--acc);margin-bottom:4px">${rupee}${this.fmt(b.amt)}</div>
+      <div style="font-size:.78rem;color:var(--mute);margin-bottom:22px">Pay to: <strong style="color:var(--txt)">${this.data.dist.name}</strong></div>
+      <a href="${upiUrl}" id="upi-btn"
+        style="display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;
+               background:linear-gradient(135deg,#00D48E,#1a73e8);color:#fff;
+               font-weight:800;font-size:1.1rem;padding:18px 0;border-radius:14px;
+               width:100%;margin-bottom:14px;letter-spacing:.3px;
+               box-shadow:0 6px 24px rgba(0,180,120,.5)"
+        onclick="setTimeout(()=>A._afterUPIOpen('${id}'),1500)">
+        <span class="material-icons-round" style="font-size:24px">open_in_new</span>
+        Open UPI App
+      </a>
+      <div style="display:flex;align-items:center;gap:8px;background:var(--inp);border-radius:10px;padding:10px 14px;margin-bottom:6px">
+        <span class="material-icons-round" style="color:var(--mute);font-size:18px">account_balance_wallet</span>
+        <div style="flex:1;text-align:left">
+          <div style="font-size:.68rem;color:var(--mute)">UPI ID</div>
+          <div style="font-family:monospace;font-weight:700;color:var(--acc);font-size:.9rem">${upi}</div>
+        </div>
+        <button class="btn btn-sm btn-s" onclick="navigator.clipboard.writeText('${upi}').then(()=>A.toast('Copied!','ok'))">
+          <span class="material-icons-round" style="font-size:16px">content_copy</span>
+        </button>
+      </div>
+    </div>`;
+    const foot=`<button class="btn btn-s" onclick="A.closeModal()">Cancel</button>
+      <button class="btn btn-p" onclick="A._afterUPIOpen('${id}')"><span class="material-icons-round">check_circle</span>I've Paid</button>`;
+    this.showModal('\ud83d\udcb3 Pay via UPI',body,foot,'mdl-sm');
   },
-  async submitUTR(id){
-    const utr=(Q('#ptr')?.value||'').trim();const pm=Q('#pm')?.value||'UPI';
-    if(!utr){this.toast('Enter UTR/Reference number','err');return;}
+
+  _afterUPIOpen(id){
     const b=this.data.bills.find(b=>b.id===id);if(!b)return;
-    await apiPut('/bills/'+id,{status:'pending_verification',utr,payMethod:pm});
-    b.status='pending_verification';b.utr=utr;b.payMethod=pm;
-    this.addNotif('payment','Payment UTR submitted for '+id+' – please verify',true);
+    const rupee='\u20b9';
+    // STEP 2 — confirm payment with optional UTR
+    const body=`<div style="text-align:center;margin-bottom:16px">
+      <span class="material-icons-round" style="font-size:48px;color:var(--ok)">check_circle</span>
+      <div style="font-weight:700;font-size:1.1rem;color:var(--txt);margin-top:6px">Payment Sent?</div>
+      <div style="font-size:.82rem;color:var(--mute);margin-top:4px">Amount: <strong style="color:var(--acc)">${rupee}${this.fmt(b.amt)}</strong> &bull; ${b.id}</div>
+    </div>
+    <div class="fg"><label>UTR / Transaction ID <span style="color:var(--mute);font-weight:400">(optional but recommended)</span></label>
+      <input id="ptr" placeholder="e.g. 427812345678" style="font-family:monospace"></div>`;
+    const foot=`<button class="btn btn-s" onclick="A.payBill('${id}')">← Back</button>
+      <button class="btn btn-ok" style="flex:1;justify-content:center" onclick="A.submitUTR('${id}')">
+        <span class="material-icons-round">verified</span>Confirm Payment
+      </button>`;
+    this.showModal('Confirm Payment',body,foot,'mdl-sm');
+  },
+
+  async submitUTR(id){
+    const utr=(Q('#ptr')?.value||'').trim()||'UPI-'+Date.now();
+    const b=this.data.bills.find(b=>b.id===id);if(!b)return;
+    // Update bill instantly for pharmacy
+    b.status='pending_verification';b.utr=utr;b.payMethod='UPI';
+    await apiPut('/bills/'+id,{status:'pending_verification',utr,payMethod:'UPI'});
+    // Notify admin with verify button
+    this.addNotif('payment','\ud83d\udcb0 Payment received for '+id+' \u2013 '+b.phName+' paid \u20b9'+this.fmt(b.amt)+'. Click to verify.',true);
+    // Notify pharmacy
+    this.addNotif('payment','Payment submitted for '+id+'. Awaiting admin confirmation.',false,b.phId);
     this.closeModal();
-    this.toast('UTR submitted!','ok','Admin will verify and confirm your payment');
+    this.toast('Payment confirmed! \u2705','ok','Admin has been notified to verify your payment');
     this.nav('billing');
   },
-  async confirmPay(id){const b=this.data.bills.find(b=>b.id===id);if(!b)return;const paid=new Date().toLocaleDateString('en-CA');await apiPut('/bills/'+id,{status:'paid',paid});b.status='paid';b.paid=paid;this.closeModal();this.toast('Payment confirmed!','ok','Bill '+id+' marked as paid');this.nav('billing');},
+
+  async confirmPay(id){
+    const b=this.data.bills.find(b=>b.id===id);if(!b)return;
+    const paid=new Date().toLocaleDateString('en-CA');
+    await apiPut('/bills/'+id,{status:'paid',paid});
+    b.status='paid';b.paid=paid;
+    // Auto-notify pharmacy that admin verified
+    this.addNotif('payment','\u2705 Payment for '+id+' verified by admin! Bill is now PAID.',false,b.phId);
+    this.closeModal();
+    this.toast('Payment confirmed!','ok','Bill '+id+' marked as paid');
+    this.nav('billing');
+  },
+
   async verifyPayment(id){
     const b=this.data.bills.find(b=>b.id===id);if(!b)return;
     const paid=new Date().toLocaleDateString('en-CA');
     await apiPut('/bills/'+id,{status:'paid',paid});
     b.status='paid';b.paid=paid;
-    this.addNotif('payment','Payment for '+id+' verified ✔',false,b.phId);
+    // Notify pharmacy
+    this.addNotif('payment','\u2705 Your payment for '+id+' (\u20b9'+this.fmt(b.amt)+') has been verified and confirmed!',false,b.phId);
     this.showBrowserNotif('Payment Verified','Bill '+id+' payment confirmed');
-    this.toast('Payment verified!','ok',id);this.nav('billing');
+    this.toast('Payment verified!','ok',id);
+    this.nav('billing');
   },
 
   // ===== PHARMACY SUBSCRIPTIONS =====
