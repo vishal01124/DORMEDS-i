@@ -90,10 +90,11 @@ p{line-height:1.6;color:var(--txt2)}
 .btn-lg{padding:13px 26px;font-size:1rem}
 .btn-icon{padding:8px;border-radius:var(--rs)}
 .btn-sync{background:linear-gradient(135deg,#00D48E,#6C63FF);color:#fff;position:relative;overflow:hidden}
-.btn-sync::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,#6C63FF,#00D4FF);opacity:0;transition:.3s}
+.btn-sync::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,#6C63FF,#00D4FF);opacity:0;transition:.3s;z-index:0}
 .btn-sync:hover::before{opacity:1}
 .btn-sync:hover{box-shadow:0 0 24px rgba(0,212,142,.45);transform:translateY(-1px)}
-.btn-sync .material-icons-round{animation:spin-slow 3s linear infinite}
+.btn-sync span{position:relative;z-index:1}
+.btn-sync .material-icons-round{animation:spin-slow 3s linear infinite;position:relative;z-index:1}
 @keyframes spin-slow{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 .drag-over{border-color:var(--acc)!important;background:rgba(108,99,255,.1)!important}
 
