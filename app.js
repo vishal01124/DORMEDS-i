@@ -1142,20 +1142,16 @@ const A = {
     const note=encodeURIComponent('Bill '+b.id);
     const amt=encodeURIComponent((+b.amt).toFixed(2));
     const upiUrl='upi://pay?pa='+encodeURIComponent(upi)+'&pn='+pn+'&am='+amt+'&cu=INR&tn='+note;
-    const qrUrl='https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=10&data='+encodeURIComponent(upiUrl);
     const rupee='\u20b9';
     const body=`<div style="text-align:center;padding:8px 0 4px">
       <div style="font-size:.78rem;color:var(--mute);margin-bottom:4px">${b.id} &bull; Due Payment</div>
       <div style="font-size:2.6rem;font-weight:900;color:var(--acc);margin-bottom:2px">${rupee}${this.fmt(b.amt)}</div>
       <div style="font-size:.78rem;color:var(--mute);margin-bottom:16px">Pay to: <strong style="color:var(--txt)">${this.data.dist.name||'PharmaDist'}</strong></div>
 
-      <div style="background:#fff;border-radius:16px;padding:12px;display:inline-block;margin-bottom:14px;box-shadow:0 4px 20px rgba(0,0,0,.15)">
-        <img src="${qrUrl}" alt="UPI QR Code"
-          style="width:200px;height:200px;display:block;border-radius:8px"
-          onerror="this.outerHTML='<div style=\'width:200px;height:200px;display:flex;align-items:center;justify-content:center;background:#f5f5f5;border-radius:8px;color:#999;font-size:.8rem\'>QR unavailable<br>Use UPI ID below</div>'"
-        >
+      <div style="background:#fff;border-radius:16px;padding:14px;display:inline-block;margin-bottom:10px;box-shadow:0 4px 20px rgba(0,0,0,.18)">
+        <div id="upi-qr-canvas"></div>
       </div>
-      <div style="font-size:.75rem;color:var(--mute);margin-bottom:14px">📷 Scan with GPay / PhonePe / Paytm / Any UPI app</div>
+      <div style="font-size:.72rem;color:var(--mute);margin-bottom:14px">📷 Scan with GPay / PhonePe / Paytm / Any UPI app</div>
 
       <div style="display:flex;align-items:center;gap:8px;background:var(--inp);border:1px solid var(--bdr);border-radius:10px;padding:10px 14px;margin-bottom:14px;text-align:left">
         <span class="material-icons-round" style="color:var(--acc);font-size:20px">account_balance_wallet</span>
@@ -1182,6 +1178,17 @@ const A = {
     const foot=`<button class="btn btn-s" onclick="A.closeModal()">Cancel</button>
       <button class="btn btn-p" onclick="A._afterUPIOpen('${id}')"><span class="material-icons-round">check_circle</span>I've Paid</button>`;
     this.showModal('\ud83d\udcb3 Pay via UPI',body,foot);
+    // Generate QR locally using qrcode.js (runs after modal renders)
+    setTimeout(()=>{
+      const el=document.getElementById('upi-qr-canvas');
+      if(!el)return;
+      if(typeof QRCode!=='undefined'){
+        new QRCode(el,{text:upiUrl,width:200,height:200,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+      } else {
+        // Fallback: show UPI ID text if QRCode lib not loaded
+        el.innerHTML='<div style="width:200px;height:200px;display:flex;align-items:center;justify-content:center;font-size:.75rem;color:#666;word-break:break-all;padding:10px;text-align:center">Use UPI ID:<br><strong>'+upi+'</strong></div>';
+      }
+    },100);
   },
 
   _afterUPIOpen(id){
