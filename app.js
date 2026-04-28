@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 //  PharmaDist Pro — Frontend App (Dual Mode)
 //  Server Mode: Full JWT auth via backend API
 //  Demo Mode:   localStorage (GitHub Pages / offline)
@@ -21,8 +21,12 @@ const API = (() => {
 })();
 let _demoMode = false;
 
-// No demo credentials — only real accounts work
-const DEMO_CREDS = {};
+// Demo credentials — active when backend is offline/sleeping
+const DEMO_CREDS = {
+  admin: { email:'admin@pharmadist.com', pw:'admin123', user:{id:'adm1',name:'Admin',email:'admin@pharmadist.com',role:'admin',init:'A',isSuper:true} },
+  ph1:   { email:'citypharma@demo.com', pw:'pharmacy123', user:{id:'ph1',name:'City Pharma',email:'citypharma@demo.com',role:'pharmacy',init:'C',phId:'ph1'} },
+  ph2:   { email:'healthplus@demo.com', pw:'health123', user:{id:'ph2',name:'HealthPlus Pharmacy',email:'healthplus@demo.com',role:'pharmacy',init:'H',phId:'ph2'} },
+};
 
 const DEMO_SEED = {
   dist:{name:'PharmaDist Pro',address:'100 Industrial Area, Pune, MH 411057',phone:'+91 20 1234 5678',mobile:'+91 99887 76655',email:'support@pharmadist.com',gst:'27ABCDE1234F1Z5',license:'MH-DIST-2020-001',upi:'pharmadist@okicici'},
@@ -107,14 +111,14 @@ const A = {
     // Try connecting to server
     if (API) {
       try {
-        const resp = await fetch(API + '/dist', {signal: AbortSignal.timeout(3000)});
+      const resp = await fetch(API + '/dist', {signal: AbortSignal.timeout(6000)});
         if (resp.ok) { const d = await resp.json(); if(d&&d.name){this.data.dist=d; _demoMode=false;} else _demoMode=true; }
         else _demoMode = true;
       } catch { _demoMode = true; }
     } else { _demoMode = true; }
 
     if (_demoMode) {
-      console.log('%c🔸 Demo Mode — data stored in localStorage','color:#FFB547;font-weight:bold');
+      console.log('%c🔸 Demo Mode — server offline, using localStorage','color:#FFB547;font-weight:bold');
       const d = demoLoad(); Object.assign(this.data, d);
     }
 
@@ -357,14 +361,7 @@ const A = {
     </div></div>`;
   },
   setLmode(m){this._lmode=m;Q('#app').innerHTML=this.rLogin();this.attachLogin();},
-  _rSignIn(){return`<div class="llogo"><div class="licon"><span class="material-icons-round">local_pharmacy</span></div><div><div class="lh">Welcome Back</div><span class="ls">Sign in to PharmaDist Pro</span></div></div>
-    <div class="ltabs"><button class="ltab active" id="tab-a" onclick="A.setRole('admin')"><span class="material-icons-round">admin_panel_settings</span>Admin</button><button class="ltab" id="tab-p" onclick="A.setRole('pharmacy')"><span class="material-icons-round">storefront</span>Pharmacy</button></div>
-    <div id="role-hint" style="font-size:.75rem;color:var(--acc);margin:-6px 0 10px;padding:5px 10px;background:rgba(108,99,255,.1);border-radius:6px;display:flex;align-items:center;gap:5px"><span class="material-icons-round" style="font-size:14px">admin_panel_settings</span>Signing in as <strong>Admin</strong> — use your admin email &amp; password</div>
-    <div class="fg"><label>Email Address</label><input id="lem" type="email" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="Enter your email" autocomplete="email"></div>
-    <div class="fg pwrap"><label>Password</label><input id="lpw" type="password" placeholder="Enter your password" autocomplete="current-password" autocorrect="off" autocapitalize="none" spellcheck="false" onkeypress="if(event.key==='Enter')A.login(A._lr||'admin')"><button class="pw-toggle" onclick="A.togglePw('lpw',this)"><span class="material-icons-round">visibility</span></button></div>
-    <div class="lrow"><label class="lcheck"><input type="checkbox" id="lrm"> <span>Remember me for 30 days</span></label><button class="link-btn" onclick="A.setLmode('forgot')">Forgot password?</button></div>
-    <button class="btn btn-p btn-lg" id="lbtn" style="width:100%;justify-content:center" onclick="A.login(A._lr||'admin')"><span class="material-icons-round">login</span>Sign In</button>
-    <div style="text-align:center;margin-top:16px;font-size:.875rem;color:var(--mute)">New pharmacy? <button class="link-btn" onclick="A.setLmode('register')">Create an account →</button></div>`;},
+  _rSignIn(){const dm=_demoMode;return`<div class="llogo"><div class="licon"><span class="material-icons-round">local_pharmacy</span></div><div><div class="lh">Welcome Back</div><span class="ls">Sign in to PharmaDist Pro</span></div></div><div class="ltabs"><button class="ltab active" id="tab-a" onclick="A.setRole('admin')"><span class="material-icons-round">admin_panel_settings</span>Admin</button><button class="ltab" id="tab-p" onclick="A.setRole('pharmacy')"><span class="material-icons-round">storefront</span>Pharmacy</button></div><div id="role-hint" style="font-size:.75rem;color:var(--acc);margin:-6px 0 10px;padding:5px 10px;background:rgba(108,99,255,.1);border-radius:6px;display:flex;align-items:center;gap:5px"><span class="material-icons-round" style="font-size:14px">admin_panel_settings</span>Signing in as <strong>Admin</strong> &mdash; use your admin email &amp; password</div>${_demoMode?"<div style=\"padding:10px 12px;background:rgba(255,181,71,.1);border:1px solid rgba(255,181,71,.35);border-radius:8px;margin-bottom:14px;font-size:.78rem\"><div style=\"font-weight:700;color:var(--warn);margin-bottom:6px\">⚠ Offline Demo Mode</div><div style=\"color:var(--txt2);margin-bottom:3px\"><strong style=\"color:var(--txt)\">Admin:</strong> admin@pharmadist.com / admin123</div><div style=\"color:var(--txt2);margin-bottom:3px\"><strong style=\"color:var(--txt)\">Pharmacy 1:</strong> citypharma@demo.com / pharmacy123</div><div style=\"color:var(--txt2)\"><strong style=\"color:var(--txt)\">Pharmacy 2:</strong> healthplus@demo.com / health123</div></div>":""}<div class="fg"><label>Email Address</label><input id="lem" type="email" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="Enter your email" autocomplete="email"></div><div class="fg pwrap"><label>Password</label><input id="lpw" type="password" placeholder="Enter your password" autocomplete="current-password" autocorrect="off" autocapitalize="none" spellcheck="false" onkeypress="if(event.key==='Enter')A.login(A._lr||'admin')"><button class="pw-toggle" onclick="A.togglePw('lpw',this)"><span class="material-icons-round">visibility</span></button></div><div class="lrow"><label class="lcheck"><input type="checkbox" id="lrm"> <span>Remember me for 30 days</span></label><button class="link-btn" onclick="A.setLmode('forgot')">Forgot password?</button></div><button class="btn btn-p btn-lg" id="lbtn" style="width:100%;justify-content:center" onclick="A.login(A._lr||'admin')"><span class="material-icons-round">login</span>Sign In</button><div style="text-align:center;margin-top:16px;font-size:.875rem;color:var(--mute)">New pharmacy? <button class="link-btn" onclick="A.setLmode('register')">Create an account →</button></div>` ;},
   _rRegister(){return`<div class="llogo"><div class="licon" style="background:linear-gradient(135deg,#00D48E,#0099FF)"><span class="material-icons-round">storefront</span></div><div><div class="lh">Create Account</div><span class="ls">Register your pharmacy</span></div></div>
     <div class="fg"><label>Pharmacy Name *</label><input id="rn" placeholder="e.g. City MediCenter" autocomplete="organization"></div>
     <div class="fg"><label>Email Address *</label><input id="rem2" type="email" placeholder="pharmacy@email.com" autocomplete="email"></div>
