@@ -233,12 +233,12 @@ footer a:hover{text-decoration:underline}
 
 <script>
 // ── Config ────────────────────────────────────────────────────
-const RAILWAY_URL = 'https://web-production-e4fbb.up.railway.app';
+const API_BASE = 'https://pharmdist-pro.onrender.com';
 const API = (() => {
   const loc = window.location;
   if (loc.hostname === 'localhost' || loc.hostname === '127.0.0.1')
     return loc.origin + '/api';
-  return RAILWAY_URL + '/api';
+  return API_BASE + '/api';
 })();
 
 let allProducts = [];

@@ -5,8 +5,7 @@
 // ============================================================
 
 // ── 🔧 BACKEND SERVER URL ─────────────────────────────────────
-//  Render  (primary, FREE forever): https://pharmdist-pro.onrender.com
-//  Railway (backup, expires ~25d):  https://web-production-e4fbb.up.railway.app
+//  Render (FREE, never sleeps — self-ping every 10 min)
 const RAILWAY_URL = 'https://pharmdist-pro.onrender.com';
 // ─────────────────────────────────────────────────────────────
 
@@ -492,7 +491,7 @@ const A = {
   },
   editPhModal(id){
     const p=this.data.pharmacies.find(ph=>ph.id===id);if(!p)return;
-    this.showModal('Edit: '+p.name,`<div class="fr"><div class="fg"><label>Name</label><input id="en" value="${p.name}"></div><div class="fg"><label>License</label><input id="el" value="${p.license}"></div></div><div class="fg"><label>Address</label><textarea id="ea">${p.address}</textarea></div><div class="fr"><div class="fg"><label>Contact</label><input id="ec" value="${p.contact}"></div><div class="fg"><label>Email</label><input id="ee" value="${p.email}"></div></div><div class="fr"><div class="fg"><label>Status</label><select id="es"><option value="active"${p.status==='active'?' selected':''}>Active</option><option value="pending"${p.status==='pending'?' selected':''}>Pending</option><option value="suspended"${p.status==='suspended'?' selected':''}>Suspended</option></select></div><div class="fg"><label>Plan</label><select id="ep2"><option value="">No Plan</option><option value="1000"${p.plan==='1000'?' selected':''}>₹1000/mo – Paid Delivery</option><option value="1300"${p.plan==='1300'?' selected':''}>₹1500/mo – Free Delivery</option></select></div></div><div class="fg" style="flex-direction:row;align-items:center;gap:10px;border:1px solid var(--bdr);padding:12px;border-radius:var(--rs);background:var(--inp)"><input type="checkbox" id="ew"${p.waived?' checked':''} style="width:auto"><label for="ew" style="margin-bottom:0;cursor:pointer">Waive subscription fee</label></div>`,
+    this.showModal('Edit: '+p.name,`<div class="fr"><div class="fg"><label>Name</label><input id="en" value="${p.name}"></div><div class="fg"><label>License</label><input id="el" value="${p.license}"></div></div><div class="fg"><label>Address</label><textarea id="ea">${p.address}</textarea></div><div class="fr"><div class="fg"><label>Contact</label><input id="ec" value="${p.contact}"></div><div class="fg"><label>Email</label><input id="ee" value="${p.email}"></div></div><div class="fr"><div class="fg"><label>Status</label><select id="es"><option value="active"${p.status==='active'?' selected':''}>Active</option><option value="pending"${p.status==='pending'?' selected':''}>Pending</option><option value="suspended"${p.status==='suspended'?' selected':''}>Suspended</option></select></div><div class="fg"><label>Plan</label><select id="ep2"><option value="">No Plan</option><option value="1000"${p.plan==='1000'?' selected':''}>₹1000/mo – Paid Delivery</option><option value="1500"${p.plan==='1500'?' selected':''}>₹1500/mo – Free Delivery</option></select></div></div><div class="fg" style="flex-direction:row;align-items:center;gap:10px;border:1px solid var(--bdr);padding:12px;border-radius:var(--rs);background:var(--inp)"><input type="checkbox" id="ew"${p.waived?' checked':''} style="width:auto"><label for="ew" style="margin-bottom:0;cursor:pointer">Waive subscription fee</label></div>`,
     `<button class="btn btn-er btn-sm" onclick="A.delPh('${id}')">Delete</button><button class="btn btn-s" onclick="A.closeModal()">Cancel</button><button class="btn btn-p" onclick="A.updPh('${id}')">Update</button>`);
   },
   async updPh(id){
