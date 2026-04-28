@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 //  PharmaDist Pro — Frontend App (Dual Mode)
 //  Server Mode: Full JWT auth via backend API
 //  Demo Mode:   localStorage (GitHub Pages / offline)
@@ -482,7 +482,7 @@ const A = {
   fph(btn,s){QA('.fbtn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');QA('.phcard').forEach(c=>{c.style.display=(s==='all'||c.dataset.s===s)?'':'none';});},
 
   addPharmacyModal(){
-    this.showModal('Register New Pharmacy',`<div class="fr"><div class="fg"><label>Pharmacy Name *</label><input id="pn" placeholder="Name"></div><div class="fg"><label>License Number *</label><input id="pl" placeholder="e.g. KAR-PH-2024-001"></div></div><div class="fg"><label>Address</label><textarea id="pa" placeholder="Full address"></textarea></div><div class="fr"><div class="fg"><label>Contact *</label><input id="pc2" type="tel" placeholder="+91 XXXXX XXXXX"></div><div class="fg"><label>Email *</label><input id="pe" type="email" placeholder="pharmacy@email.com"></div></div><div class="fr"><div class="fg"><label>Password</label><input id="pp" value="pharma123"></div><div class="fg"><label>Plan</label><select id="pplan"><option value="">No Plan</option><option value="1000">₹1000/mo – Paid Delivery</option><option value="1300">₹1500/mo – Free Delivery</option></select></div></div><div class="upl" onclick="this.querySelector('input').click()"><span class="material-icons-round">upload_file</span><p>Upload Past Bills</p><p><span>Browse files</span></p><input type="file" multiple accept=".pdf,.jpg,.png" style="display:none"></div>`,
+    this.showModal('Register New Pharmacy',`<div class="fr"><div class="fg"><label>Pharmacy Name *</label><input id="pn" placeholder="Name"></div><div class="fg"><label>License Number *</label><input id="pl" placeholder="e.g. KAR-PH-2024-001"></div></div><div class="fg"><label>Address</label><textarea id="pa" placeholder="Full address"></textarea></div><div class="fr"><div class="fg"><label>Contact *</label><input id="pc2" type="tel" placeholder="+91 XXXXX XXXXX"></div><div class="fg"><label>Email *</label><input id="pe" type="email" placeholder="pharmacy@email.com"></div></div><div class="fr"><div class="fg"><label>Password</label><input id="pp" value="pharma123"></div><div class="fg"><label>Plan</label><select id="pplan"><option value="">No Plan</option><option value="1000">₹1000/mo – Paid Delivery</option><option value="1500">₹1500/mo – Free Delivery</option></select></div></div><div class="upl" onclick="this.querySelector('input').click()"><span class="material-icons-round">upload_file</span><p>Upload Past Bills</p><p><span>Browse files</span></p><input type="file" multiple accept=".pdf,.jpg,.png" style="display:none"></div>`,
     `<button class="btn btn-s" onclick="A.closeModal()">Cancel</button><button class="btn btn-p" onclick="A.savePharmacy()"><span class="material-icons-round">save</span>Register</button>`);
   },
   async savePharmacy(){
@@ -1569,7 +1569,6 @@ const A = {
     };
     this.toast('Saving...','ok');
     const res=await apiPost('/dist-settings',d);
-    console.log('dist-settings res:',res);
     // Always update local data so QR codes work immediately
     Object.assign(this.data.dist,d);
     if(res?.ok){this.toast('\u2714 Saved! UPI: '+d.upi,'ok');}
