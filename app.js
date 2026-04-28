@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 //  PharmaDist Pro — Frontend App (Dual Mode)
 //  Server Mode: Full JWT auth via backend API
 //  Demo Mode:   localStorage (GitHub Pages / offline)
@@ -890,11 +890,163 @@ const A = {
     const phId=this.st.user.phId;const drugs=this.data.drugs.filter(d=>d.phId===phId);const today=new Date();const srch=this.st.filt.is||'';
     const filtered=drugs.filter(d=>!srch||d.name.toLowerCase().includes(srch.toLowerCase())||d.gen.toLowerCase().includes(srch.toLowerCase())||d.cat.toLowerCase().includes(srch.toLowerCase()));
     const ds=d=>{const e=new Date(d.exp);if(e<today)return'expired';if((e-today)/864e5<=30)return'expiring';if(d.qty<=d.min)return'low';return'ok';};
-    return`<div class="ph"><div class="pt"><h1>Drug Inventory</h1><p>Manage all drugs in your pharmacy.</p></div><div class="pa"><button class="btn btn-s" onclick="A.exportCSV()" title="Export to CSV"><span class="material-icons-round">download</span>Export</button><button class="btn btn-s" onclick="A.openScanner()"><span class="material-icons-round">qr_code_scanner</span>Scan</button><button class="btn btn-p" onclick="A.addDrugModal()"><span class="material-icons-round">add</span>Add Drug</button></div></div>
+    return`<div class="ph"><div class="pt"><h1>Drug Inventory</h1><p>Manage all drugs in your pharmacy.</p></div><div class="pa"><button class="btn btn-s" onclick="A.exportCSV()" title="Export to CSV"><span class="material-icons-round">download</span>Export</button><button class="btn btn-s" onclick="A.openScanner()"><span class="material-icons-round">qr_code_scanner</span>Scan</button><button class="btn btn-sync" onclick="A.importSoftwareModal()" title="Import from Marg, Busy, Winpharm, Tally…"><span class="material-icons-round">sync</span>Sync from Software</button><button class="btn btn-p" onclick="A.addDrugModal()"><span class="material-icons-round">add</span>Add Drug</button></div></div>
     <div class="fb" style="justify-content:space-between"><div style="display:flex;gap:7px"><button class="fbtn active" onclick="A.fInv(this,'all')">All (${drugs.length})</button><button class="fbtn" onclick="A.fInv(this,'low')">Low Stock (${drugs.filter(d=>d.qty<=d.min).length})</button><button class="fbtn" onclick="A.fInv(this,'expiring')">Expiring (${drugs.filter(d=>{const e=new Date(d.exp);return e>today&&(e-today)/864e5<=30;}).length})</button><button class="fbtn" onclick="A.fInv(this,'expired')">Expired (${drugs.filter(d=>new Date(d.exp)<today).length})</button></div><div style="position:relative;max-width:240px"><span class="material-icons-round si-icon" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--mute);font-size:18px;pointer-events:none">search</span><input type="text" placeholder="Search drugs…" value="${srch}" oninput="A.setState('st.filt.is',this.value);A.nav('inventory')" style="padding-left:36px"></div></div>
     <div class="card"><div class="tw"><table id="invt"><thead><tr><th>Drug Name</th><th>Generic</th><th>Category</th><th>Quantity</th><th>Batch</th><th>MRP</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead><tbody>${filtered.map(d=>{const s=ds(d);const days=Math.round((new Date(d.exp)-today)/864e5);return`<tr class="inv-${s==='expired'?'exp':s==='expiring'?'soon':s==='low'?'low':''}" data-ds="${s}"><td style="font-weight:700">${d.name}</td><td style="color:var(--mute)">${d.gen}</td><td><span class="badge b-gray">${d.cat}</span></td><td style="color:${d.qty<=d.min?'var(--err)':'var(--txt)'};font-weight:700">${d.qty}${d.qty<=d.min?' ⚠️':''}</td><td style="font-family:monospace;font-size:.8rem">${d.batch}</td><td>₹${d.mrp.toFixed(2)}</td><td style="color:${s==='expired'?'var(--err)':s==='expiring'?'var(--warn)':'var(--txt2)'}">${d.exp}${s==='expiring'?` (${days}d)`:s==='expired'?' ⚠️':''}</td><td>${s==='expired'?'<span class="badge b-err">Expired</span>':s==='expiring'?'<span class="badge b-warn">Expiring</span>':s==='low'?'<span class="badge b-err">Low Stock</span>':'<span class="badge b-ok">In Stock</span>'}</td><td><div class="ta"><button class="btn btn-sm btn-s" onclick="A.editDrugModal('${d.id}')">Edit</button><button class="btn btn-sm btn-er" onclick="A.delDrug('${d.id}')">Delete</button></div></td></tr>`;}).join('')}${filtered.length===0?`<tr><td colspan="9"><div class="empty"><span class="material-icons-round">search_off</span><h3>No drugs found</h3></div></td></tr>`:''}</tbody></table></div></div>`;
   },
   fInv(btn,s){QA('.fbtn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');QA('#invt tbody tr').forEach(r=>{r.style.display=(s==='all'||r.dataset.ds===s)?'':'none';});},
+
+  // ===== SMART INVENTORY SYNC (Import from Software) =====
+  importSoftwareModal(){
+    this.showModal('🔄 Sync Inventory from Software',`
+      <div style="text-align:center;padding:6px 0 18px">
+        <div style="font-size:.82rem;color:var(--mute);margin-bottom:14px">Supports Marg ERP, Busy, Winpharm, Tally, Gofrugal and any CSV/Excel export</div>
+        <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:18px">
+          ${['Marg ERP','Busy','Winpharm','Tally','Gofrugal','Excel/CSV'].map(s=>`<span style="padding:4px 12px;border-radius:99px;border:1px solid var(--bdr);font-size:.72rem;color:var(--mute);font-weight:600">${s}</span>`).join('')}
+        </div>
+      </div>
+
+      <!-- Drag & Drop Zone -->
+      <div id="sync-drop" onclick="Q('#sync-file').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="event.preventDefault();this.classList.remove('drag-over');A.handleSyncFile(event.dataTransfer.files[0])"
+        style="border:2px dashed var(--bdr);border-radius:14px;padding:32px;text-align:center;cursor:pointer;transition:.25s;background:rgba(108,99,255,.04)" onmouseenter="this.style.borderColor='var(--acc)'" onmouseleave="this.style.borderColor='var(--bdr)'">
+        <span class="material-icons-round" style="font-size:42px;color:var(--acc);display:block;margin-bottom:10px">upload_file</span>
+        <div style="font-weight:700;color:var(--txt);margin-bottom:4px">Drop your CSV / Excel file here</div>
+        <div style="font-size:.78rem;color:var(--mute)">or <span style="color:var(--acc);text-decoration:underline">click to browse</span></div>
+        <input type="file" id="sync-file" accept=".csv,.xlsx,.xls,.txt" style="display:none" onchange="A.handleSyncFile(this.files[0])">
+      </div>
+
+      <!-- Divider -->
+      <div style="display:flex;align-items:center;gap:10px;margin:14px 0">
+        <div style="flex:1;height:1px;background:var(--bdr)"></div>
+        <span style="font-size:.75rem;color:var(--mute)">OR PASTE DATA</span>
+        <div style="flex:1;height:1px;background:var(--bdr)"></div>
+      </div>
+
+      <!-- Paste area -->
+      <textarea id="sync-paste" placeholder="Paste CSV data here (Name, Quantity, Batch, Expiry, MRP, Category)&#10;Example:&#10;Paracetamol 500mg,100,B2024001,2026-12-31,12.50,Analgesic&#10;Amoxicillin 250mg,200,B2024002,2026-06-30,45.00,Antibiotic"
+        style="min-height:110px;font-family:monospace;font-size:.78rem;resize:vertical" oninput="A.syncPreviewPaste()"></textarea>
+
+      <!-- Preview area -->
+      <div id="sync-preview" style="margin-top:12px"></div>
+    `,`<button class="btn btn-s" onclick="A.closeModal()">Cancel</button><button class="btn btn-p" id="sync-import-btn" onclick="A.runSyncImport()" style="display:none"><span class="material-icons-round">download_done</span>Import All to Inventory</button>`,'mdl-lg');
+  },
+
+  handleSyncFile(file){
+    if(!file)return;
+    const ext=file.name.split('.').pop().toLowerCase();
+    if(!['csv','txt','xlsx','xls'].includes(ext)){this.toast('Please upload a CSV or Excel file','err');return;}
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const text=e.target.result;
+      Q('#sync-paste').value=text;
+      this.syncPreviewPaste();
+    };
+    reader.readAsText(file);
+    const drop=Q('#sync-drop');
+    if(drop)drop.innerHTML=`<span class="material-icons-round" style="font-size:32px;color:var(--ok);display:block;margin-bottom:8px">check_circle</span><div style="font-weight:700;color:var(--ok)">${file.name}</div><div style="font-size:.75rem;color:var(--mute)">${(file.size/1024).toFixed(1)} KB — Parsing...</div>`;
+  },
+
+  _parseSyncCSV(text){
+    // Auto-detect delimiter
+    const delim=text.includes('\t')?'\t':text.includes(';')?';':',';
+    const lines=text.trim().split('\n').filter(l=>l.trim());
+    if(!lines.length)return[];
+    // Detect if first row is a header
+    const firstLower=lines[0].toLowerCase();
+    const hasHeader=firstLower.includes('name')||firstLower.includes('drug')||firstLower.includes('item')||firstLower.includes('product')||firstLower.includes('medicine');
+    const dataLines=hasHeader?lines.slice(1):lines;
+    const cats=['Analgesic','Antibiotic','Antidiabetic','Antihypertensive','Antihistamine','Statin','PPI','Antifungal','Antiviral','Vitamin'];
+    const today=new Date().toLocaleDateString('en-CA');
+
+    return dataLines.map(line=>{
+      const cols=line.split(delim).map(c=>c.trim().replace(/^["']|["']$/g,''));
+      // Smart column detection — try to find which column is what
+      const name=cols[0]||'Unknown Drug';
+      const qty=parseInt(cols.find(c=>/^\d+$/.test(c.trim())))||0;
+      // Find expiry — look for date pattern
+      const expCol=cols.find(c=>/\d{4}[-\/]\d{1,2}[-\/]\d{1,2}|\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}/.test(c));
+      let exp=today;
+      if(expCol){
+        // Normalize date to YYYY-MM-DD
+        const parts=expCol.split(/[-\/]/);
+        if(parts.length===3){
+          if(parts[0].length===4)exp=expCol.replace(/\//g,'-');
+          else if(parts[2].length===4)exp=`${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+          else if(parts[2].length===2)exp=`20${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+        }
+      }
+      // Batch no
+      const batchCol=cols.find(c=>/^[A-Z]{1,3}[\-\/]?\d{4,}/i.test(c)&&c!==name);
+      const batch=batchCol||('B'+Date.now().toString().slice(-6));
+      // MRP — look for decimal price
+      const mrpCol=cols.find(c=>/^\d+(\.\d{1,2})?$/.test(c)&&parseFloat(c)<10000&&parseFloat(c)>0);
+      const mrp=parseFloat(mrpCol)||0;
+      // Category — check if any col matches known categories
+      const catCol=cols.find(c=>cats.some(cat=>c.toLowerCase().includes(cat.toLowerCase())));
+      const cat=catCol?cats.find(cat=>catCol.toLowerCase().includes(cat.toLowerCase()))||'Other':'Other';
+      return{name,qty,exp,batch,mrp,cat,gen:'',mfr:'',min:50,price:mrp*.8};
+    }).filter(d=>d.name&&d.name!=='Unknown Drug'&&d.qty>0);
+  },
+
+  syncPreviewPaste(){
+    const text=Q('#sync-paste')?.value||'';
+    if(!text.trim()){Q('#sync-preview').innerHTML='';if(Q('#sync-import-btn'))Q('#sync-import-btn').style.display='none';return;}
+    const rows=this._parseSyncCSV(text);
+    this._syncRows=rows;
+    const el=Q('#sync-preview');
+    if(!el)return;
+    if(!rows.length){
+      el.innerHTML=`<div style="padding:12px;background:rgba(255,71,87,.08);border:1px solid var(--err);border-radius:8px;font-size:.82rem;color:var(--err)">⚠️ Could not parse data. Make sure it's CSV format: Name, Qty, Batch, Expiry, MRP</div>`;
+      if(Q('#sync-import-btn'))Q('#sync-import-btn').style.display='none';
+      return;
+    }
+    el.innerHTML=`
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-weight:700;color:var(--ok)"><span class="material-icons-round" style="vertical-align:middle;font-size:18px">check_circle</span> ${rows.length} drugs detected — Preview</div>
+        <span class="badge b-ok">${rows.length} items ready</span>
+      </div>
+      <div style="max-height:220px;overflow-y:auto;border-radius:10px;border:1px solid var(--bdr)">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="background:var(--inp)">${['Drug Name','Qty','Batch','Expiry','MRP ₹','Category'].map(h=>`<th style="padding:8px 10px;font-size:.72rem;font-weight:700;color:var(--mute);text-align:left;white-space:nowrap">${h}</th>`).join('')}</tr></thead>
+          <tbody>${rows.map((r,i)=>`<tr style="border-top:1px solid var(--bdr);background:${i%2===0?'transparent':'rgba(255,255,255,.02)'}">
+            <td style="padding:7px 10px;font-weight:600;color:var(--txt);font-size:.82rem">${r.name}</td>
+            <td style="padding:7px 10px;color:${r.qty>0?'var(--ok)':'var(--err)'};font-weight:700">${r.qty}</td>
+            <td style="padding:7px 10px;font-family:monospace;font-size:.75rem;color:var(--mute)">${r.batch}</td>
+            <td style="padding:7px 10px;font-size:.8rem">${r.exp}</td>
+            <td style="padding:7px 10px;font-weight:600">₹${r.mrp.toFixed(2)}</td>
+            <td style="padding:7px 10px"><span class="badge b-gray" style="font-size:.65rem">${r.cat}</span></td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>`;
+    const btn=Q('#sync-import-btn');if(btn)btn.style.display='inline-flex';
+  },
+
+  async runSyncImport(){
+    const rows=this._syncRows||[];
+    if(!rows.length){this.toast('No data to import','err');return;}
+    const btn=Q('#sync-import-btn');
+    if(btn){btn.disabled=true;btn.innerHTML='<span class="material-icons-round spin">autorenew</span>Importing...';}
+    const phId=this.st.user.phId;
+    let ok=0,fail=0;
+    for(const r of rows){
+      const drug={phId,name:r.name,gen:r.gen||'',cat:r.cat||'Other',mfr:r.mfr||'',batch:r.batch,qty:r.qty,min:r.min||50,price:r.price||r.mrp*.8,mrp:r.mrp,exp:r.exp,bc:''};
+      // Check if drug with same name already exists — update qty if yes
+      const existing=this.data.drugs.find(d=>d.phId===phId&&d.name.toLowerCase()===drug.name.toLowerCase());
+      if(existing){
+        existing.qty=drug.qty;existing.mrp=drug.mrp;existing.batch=drug.batch;existing.exp=drug.exp;
+        const res=await apiPut('/drugs/'+existing.id,existing);
+        if(res?.ok||_demoMode)ok++;else fail++;
+      } else {
+        const res=await apiPost('/drugs',drug);
+        if(res?.ok||_demoMode){drug.id=res?.id||'d'+Date.now()+ok;this.data.drugs.push(drug);ok++;}else fail++;
+      }
+    }
+    this.closeModal();
+    this.toast(`✅ Sync complete! ${ok} drugs imported${fail>0?`, ${fail} failed`:''}`, ok>0?'ok':'err', `Inventory updated from software`);
+    this.nav('inventory');
+  },
+
+
   addDrugModal(pre={}){
     const cats=['Analgesic','Antibiotic','Antidiabetic','Antihypertensive','Antihistamine','Statin','PPI','Antifungal','Antiviral','Vitamin','Other'];
     this.showModal('Add Drug',`<div class="fr"><div class="fg"><label>Drug Name *</label><input id="dn2" placeholder="e.g. Paracetamol 500mg" value="${pre.name||''}"></div><div class="fg"><label>Generic Name</label><input id="dg" placeholder="Generic name" value="${pre.gen||''}"></div></div><div class="fr"><div class="fg"><label>Category</label><select id="dc">${cats.map(c=>`<option value="${c}"${pre.cat===c?' selected':''}>${c}</option>`).join('')}</select></div><div class="fg"><label>Manufacturer</label><input id="dm" placeholder="e.g. Sun Pharma" value="${pre.mfr||''}"></div></div><div class="fr"><div class="fg"><label>Quantity *</label><input id="dq" type="number" min="0" placeholder="0" value="${pre.qty||''}"></div><div class="fg"><label>Min Stock</label><input id="dms" type="number" min="0" placeholder="50" value="${pre.min||50}"></div></div><div class="fr"><div class="fg"><label>Purchase Price ₹</label><input id="dp" type="number" min="0" step="0.01" placeholder="0.00" value="${pre.price||''}"></div><div class="fg"><label>MRP ₹</label><input id="dmp" type="number" min="0" step="0.01" placeholder="0.00" value="${pre.mrp||''}"></div></div><div class="fr"><div class="fg"><label>Batch No.</label><input id="db" placeholder="e.g. B2024001" value="${pre.batch||''}"></div><div class="fg"><label>Expiry Date *</label><input id="de" type="date" value="${pre.exp||''}"></div></div><div class="fg"><label>Barcode</label><input id="dbc" placeholder="Barcode number" value="${pre.bc||''}"></div>`,
