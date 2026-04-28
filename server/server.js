@@ -190,18 +190,22 @@ app.get('/api/health', (req, res) => {
   res.json({
     ok: true,
     version: '4.0',
-    resend: process.env.RESEND_API_KEY ? '✅ set (hidden)' : '❌ missing',
+    email: process.env.RESEND_API_KEY
+      ? '✅ Resend API (active)'
+      : (mailer ? '✅ SMTP/nodemailer (active)' : '❌ not configured — password reset disabled'),
+    resend: process.env.RESEND_API_KEY ? '✅ set (hidden)' : '❌ not set',
     smtp: {
       host:    process.env.SMTP_HOST   ? '✅ set (' + process.env.SMTP_HOST + ')' : '❌ missing',
       port:    process.env.SMTP_PORT   ? '✅ set (' + process.env.SMTP_PORT + ')' : '❌ missing (default 587)',
       user:    process.env.SMTP_USER   ? '✅ set (' + process.env.SMTP_USER + ')' : '❌ missing',
       pass:    process.env.SMTP_PASS   ? '✅ set (hidden)' : '❌ missing',
       from:    process.env.SMTP_FROM   ? '✅ set (' + process.env.SMTP_FROM + ')' : '❌ missing',
-      mailerReady: mailer !== null ? '✅ mailer created' : '❌ mailer is null',
+      note:    process.env.RESEND_API_KEY ? 'ℹ️ SMTP skipped — Resend API takes priority' : (mailer ? '✅ active' : '❌ mailer is null'),
     },
     jwt:     process.env.JWT_SECRET   ? '✅ custom secret set' : '⚠️ default secret!',
     db:      process.env.DATABASE_URL ? '✅ set' : '❌ missing',
-    appUrl:  process.env.APP_URL      || 'not set',
+    selfPing: process.env.RENDER_SELF_URL ? '✅ active every 10min → ' + process.env.RENDER_SELF_URL : '⚠️ RENDER_SELF_URL not set',
+    appUrl:  process.env.APP_URL || 'not set',
   });
 });
 
