@@ -428,7 +428,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
    ============================================================ */
 .mo{
   position:fixed;inset:0;background:rgba(0,0,0,.72);
-  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
   display:flex;align-items:center;justify-content:center;
   z-index:500;padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
   animation:fadeIn .2s;overflow-y:auto;
@@ -451,7 +451,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .mh h2{font-size:1.0625rem;color:var(--txt)}
 .mb2{padding:22px;overflow-y:auto;flex:1}
 .mf{padding:14px 22px;border-top:1px solid var(--bdr);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0;flex-wrap:wrap}
-.mf .btn,.mf a.btn{min-width:fit-content;flex-shrink:0}
+.mf .btn,.mf a.btn{min-width:-webkit-fill-available;min-width:fit-content;flex-shrink:0}
 
 /* ============================================================
    TABS & FILTERS
@@ -825,7 +825,7 @@ tr.inv-low td:nth-child(4){color:var(--err)!important;font-weight:700}
 .lcheck{
   display:flex;align-items:center;gap:7px;
   cursor:pointer;font-size:.8rem;color:var(--txt2);
-  margin-bottom:0;user-select:none;
+  margin-bottom:0;-webkit-user-select:none;user-select:none;
 }
 .lcheck input[type="checkbox"]{
   width:15px;height:15px;cursor:pointer;accent-color:var(--acc);
