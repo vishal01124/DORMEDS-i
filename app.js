@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 //  PharmaDist Pro — Frontend App (Dual Mode)
 //  Server Mode: Full JWT auth via backend API
 //  Demo Mode:   localStorage (GitHub Pages / offline)
@@ -317,7 +317,7 @@ const A = {
     const el=Q('#pc');if(!el)return;
     const pg=this.st.page,role=this.st.role;
     const mp={
-      admin:{dashboard:()=>this.rAdminDash(),pharmacies:()=>this.rPharmacies(),'dist-inventory':()=>'<div class="loading-page" style="display:flex;align-items:center;justify-content:center;height:60vh;flex-direction:column;gap:14px"><span class="material-icons-round" style="font-size:48px;color:var(--acc);animation:spin 1s linear infinite">refresh</span><p style="color:var(--mute)">Loading stock...</p></div>',documentation:()=>this.rAdminDocs(),orders:()=>this.rAdminOrders(),subscriptions:()=>this.rSubs(),billing:()=>this.rAdminBilling(),returns:()=>this.rAdminReturns(),support:()=>this.rAdminSupport(),analytics:()=>this.rAnalytics(),audit:()=>this.rAudit(),admins:()=>this.rAdminTeam(),products:()=>this.rAdminProducts(),profile:()=>this.rProfile()},
+      admin:{dashboard:()=>this.rAdminDash(),pharmacies:()=>this.rPharmacies(),'dist-inventory':()=>'<div class="loading-page" style="display:flex;align-items:center;justify-content:center;height:60vh;flex-direction:column;gap:14px"><span class="material-icons-round" style="font-size:48px;color:var(--acc);animation:spin 1s linear infinite">refresh</span><p style="color:var(--mute)">Loading stock...</p></div>',documentation:()=>this.rAdminDocs(),orders:()=>this.rAdminOrders(),quotations:()=>this.rQuotations(),subscriptions:()=>this.rSubs(),billing:()=>this.rAdminBilling(),returns:()=>this.rAdminReturns(),support:()=>this.rAdminSupport(),analytics:()=>this.rAnalytics(),audit:()=>this.rAudit(),admins:()=>this.rAdminTeam(),products:()=>this.rAdminProducts(),profile:()=>this.rProfile()},
       pharmacy:{dashboard:()=>this.rPhDash(),inventory:()=>this.rInventory(),catalog:()=>this.rPhCatalog(),orders:()=>this.rPhOrders(),documentation:()=>this.rPhDocs(),billing:()=>this.rPhBilling(),subscriptions:()=>this.rPhSubs(),returns:()=>this.rPhReturns(),support:()=>this.rPhSupport(),profile:()=>this.rProfile()}
     };
     el.innerHTML=(mp[role]?.[pg]||mp[role]?.dashboard)();
@@ -329,6 +329,7 @@ const A = {
       if(pg==='admins'&&role==='admin')this.loadAdminTeam();
       if(pg==='products'&&role==='admin')this.loadAdminProducts();
       if(pg==='dist-inventory'&&role==='admin')this.loadDistInventory();
+      if(pg==='quotations'&&role==='admin')this.loadQuotations();
       if(pg==='catalog'&&role==='pharmacy')this.loadPhCatalog();
     },50);
   },
@@ -413,7 +414,7 @@ const A = {
   navAdmin(){
     const d=this.data;const po=d.orders.filter(o=>o.type==='inventory'&&o.status==='pending').length;const pr=d.returns.filter(r=>r.status==='pending').length;const ub=d.bills.filter(b=>b.status==='unpaid').length;
     const isSuper=this.st.user?.isSuper;
-    return this.navSec('Overview',[{p:'dashboard',i:'dashboard',l:'Dashboard'},{p:'dist-inventory',i:'inventory_2',l:'My Stock'},{p:'pharmacies',i:'storefront',l:'Pharmacies'}])+this.navSec('Catalog',[{p:'products',i:'inventory_2',l:'Products Catalog'}])+this.navSec('Operations',[{p:'documentation',i:'description',l:'Documentation'},{p:'orders',i:'shopping_cart',l:'Orders',b:po||undefined}])+this.navSec('Finance',[{p:'subscriptions',i:'card_membership',l:'Subscriptions'},{p:'billing',i:'receipt_long',l:'Billing',b:ub||undefined},{p:'returns',i:'assignment_return',l:'Returns',b:pr||undefined}])+this.navSec('Help',[{p:'support',i:'support_agent',l:'Support'}])+this.navSec('Admin',[{p:'analytics',i:'bar_chart',l:'SaaS Analytics'},{p:'audit',i:'security',l:'Audit Log'},...(isSuper?[{p:'admins',i:'supervised_user_circle',l:'Admin Team'}]:[]),{p:'profile',i:'manage_accounts',l:'My Account'}]);
+    return this.navSec('Overview',[{p:'dashboard',i:'dashboard',l:'Dashboard'},{p:'dist-inventory',i:'inventory_2',l:'My Stock'},{p:'pharmacies',i:'storefront',l:'Pharmacies'}])+this.navSec('Catalog',[{p:'products',i:'inventory_2',l:'Products Catalog'}])+this.navSec('Operations',[{p:'documentation',i:'description',l:'Documentation'},{p:'orders',i:'shopping_cart',l:'Orders',b:po||undefined},{p:'quotations',i:'request_quote',l:'Quotations'}])+this.navSec('Finance',[{p:'subscriptions',i:'card_membership',l:'Subscriptions'},{p:'billing',i:'receipt_long',l:'Billing',b:ub||undefined},{p:'returns',i:'assignment_return',l:'Returns',b:pr||undefined}])+this.navSec('Help',[{p:'support',i:'support_agent',l:'Support'}])+this.navSec('Admin',[{p:'analytics',i:'bar_chart',l:'SaaS Analytics'},{p:'audit',i:'security',l:'Audit Log'},...(isSuper?[{p:'admins',i:'supervised_user_circle',l:'Admin Team'}]:[]),{p:'profile',i:'manage_accounts',l:'My Account'}]);
   },
   navPh(){
     const phId=this.st.user.phId;const d=this.data;
@@ -430,7 +431,14 @@ const A = {
   toggleNP(){
     const np=Q('#np');const open=np.classList.contains('open');
     if(open){np.classList.remove('open');return;}
-    const ns=this.getNotifs();np.innerHTML=`<div class="nph"><h3>Notifications (${ns.filter(n=>!n.read).length} new)</h3><div style="display:flex;gap:6px"><button class="btn btn-sm btn-s" onclick="A.markAllRead()">Mark read</button><button class="btn btn-sm btn-s" onclick="A.toggleNP()"><span class="material-icons-round" style="font-size:17px">close</span></button></div></div><div class="nl2">${ns.length===0?'<div class="empty"><span class="material-icons-round">notifications_none</span><h3>No notifications</h3></div>':ns.map(n=>`<div class="nitem${n.read?'':' unread'}" onclick="A.markRead('${n.id}')"><div class="nt ${n.type}">${n.type}</div><div class="nm">${n.msg}</div><div class="nd">${n.date}</div></div>`).join('')}</div>`;
+    const allNs=this.getNotifs();
+    const cats=['all','order','payment','stock','expiry','return'];
+    const fcat=this.st._nCat||'all';
+    const ns=fcat==='all'?allNs:allNs.filter(n=>n.type===fcat);
+    const typeIcon={order:'shopping_cart',payment:'payments',stock:'inventory',expiry:'event_busy',return:'assignment_return',default:'notifications'};
+    np.innerHTML=`<div class="nph"><h3>Notifications <span class="badge b-err">${allNs.filter(n=>!n.read).length}</span></h3><div style="display:flex;gap:6px"><button class="btn btn-sm btn-s" onclick="A.markAllRead()">Mark read</button><button class="btn btn-sm btn-s" onclick="A.toggleNP()"><span class="material-icons-round" style="font-size:17px">close</span></button></div></div>
+    <div style="display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid var(--bdr);overflow-x:auto;flex-shrink:0">${cats.map(c=>`<button onclick="A.st._nCat='${c}';A.toggleNP();A.toggleNP()" style="flex-shrink:0;padding:4px 11px;border-radius:99px;border:1px solid ${fcat===c?'var(--acc)':'var(--bdr)'};background:${fcat===c?'rgba(108,99,255,.15)':'transparent'};color:${fcat===c?'var(--acc)':'var(--mute)'};font-size:.72rem;font-weight:600;cursor:pointer;font-family:inherit">${c.charAt(0).toUpperCase()+c.slice(1)}${c==='all'?'':` (${allNs.filter(n=>n.type===c).length})`}</button>`).join('')}</div>
+    <div class="nl2">${ns.length===0?'<div class="empty"><span class="material-icons-round">notifications_none</span><h3>No notifications</h3></div>':ns.map(n=>`<div class="nitem${n.read?'':' unread'}" onclick="A.markRead('${n.id}')"><div class="nt ${n.type}"><span class="material-icons-round" style="font-size:14px">${typeIcon[n.type]||typeIcon.default}</span>${n.type}</div><div class="nm">${n.msg}</div><div class="nd">${n.date}</div></div>`).join('')}</div>`;
     np.classList.add('open');
   },
   async markAllRead(){this.getNotifs().forEach(n=>n.read=true);await apiPost('/notifs/read-all',{role:this.st.role,phId:this.st.user?.phId});this.toggleNP();this.updateNDot();},
@@ -473,7 +481,7 @@ const A = {
     <div class="fb"><button class="fbtn active" onclick="A.fph(this,'all')">All (${d.pharmacies.length})</button><button class="fbtn" onclick="A.fph(this,'active')">Active (${d.pharmacies.filter(p=>p.status==='active').length})</button><button class="fbtn" onclick="A.fph(this,'pending')">Pending (${d.pharmacies.filter(p=>p.status==='pending').length})</button></div>
     <div class="phg" id="phg">${d.pharmacies.map(p=>this.phCard(p)).join('')}</div>`;
   },
-  phCard(p){return`<div class="phcard" data-s="${p.status}"><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div class="pha">${p.name[0]}</div><div style="flex:1"><div style="font-weight:700;color:var(--txt)">${p.name}</div><div style="font-size:.72rem;color:var(--mute);font-family:monospace">${p.license}</div></div>${this.sbadge(p.status)}</div><div class="phdet"><div><span class="material-icons-round">location_on</span>${p.address}</div><div><span class="material-icons-round">phone</span>${p.contact}</div><div><span class="material-icons-round">email</span>${p.email}</div><div><span class="material-icons-round">calendar_today</span>Joined ${p.joined}</div></div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid var(--bdr)"><div>${p.plan?`<span class="badge b-acc">₹${p.plan}/mo</span>${p.waived?'<span class="badge b-ok" style="margin-left:4px">Waived</span>':''}`: '<span class="badge b-gray">No Plan</span>'}</div><div style="display:flex;gap:6px"><button class="btn btn-sm btn-s" onclick="A.phDetail('${p.id}')">View</button><button class="btn btn-sm btn-p" onclick="A.editPhModal('${p.id}')">Edit</button></div></div></div>`;},
+  phCard(p){return`<div class="phcard" data-s="${p.status}"><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div class="pha">${p.name[0]}</div><div style="flex:1"><div style="font-weight:700;color:var(--txt)">${p.name}</div><div style="font-size:.72rem;color:var(--mute);font-family:monospace">${p.license}</div></div><div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">${this.sbadge(p.status)}${p.ph_type==='hospital'?'<span class="badge b-info" style="font-size:.62rem">🏥 Hospital</span>':''}</div></div><div class="phdet"><div><span class="material-icons-round">location_on</span>${p.address}</div><div><span class="material-icons-round">phone</span>${p.contact}</div><div><span class="material-icons-round">email</span>${p.email}</div><div><span class="material-icons-round">calendar_today</span>Joined ${p.joined}</div></div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid var(--bdr)"><div>${p.plan?`<span class="badge b-acc">₹${p.plan}/mo</span>${p.waived?'<span class="badge b-ok" style="margin-left:4px">Waived</span>':''}`: '<span class="badge b-gray">No Plan</span>'}</div><div style="display:flex;gap:6px"><button class="btn btn-sm btn-s" onclick="A.phDetail('${p.id}')">View</button><button class="btn btn-sm btn-p" onclick="A.editPhModal('${p.id}')">Edit</button></div></div></div>`;},
   fph(btn,s){QA('.fbtn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');QA('.phcard').forEach(c=>{c.style.display=(s==='all'||c.dataset.s===s)?'':'none';});},
 
   addPharmacyModal(){
@@ -536,20 +544,88 @@ const A = {
   // ===== ADMIN ORDERS =====
   rAdminOrders(){
     const ords=this.data.orders.filter(o=>o.type==='inventory');const f=this.st.filt.ao||'all';const list=f==='all'?ords:ords.filter(o=>o.status===f);
-    return`<div class="ph"><div class="pt"><h1>Pharmacy Orders</h1><p>Bulk orders placed by pharmacies.</p></div></div>
-    <div class="fb">${['all','pending','approved','delivered'].map(s=>`<button class="fbtn${f===s?' active':''}" onclick="A.setState('st.filt.ao','${s}');A.nav('orders')">${s.charAt(0).toUpperCase()+s.slice(1)} (${s==='all'?ords.length:ords.filter(o=>o.status===s).length})</button>`).join('')}</div>
+    return`<div class="ph"><div class="pt"><h1>Pharmacy Orders</h1><p>Bulk orders placed by pharmacies.</p></div><button class="btn btn-p" onclick="A.newOrderModal()"><span class="material-icons-round">add</span>New Order</button></div>
+    <div class="fb">${['all','pending','approved','dispatched','delivered'].map(s=>`<button class="fbtn${f===s?' active':''}" onclick="A.setState('st.filt.ao','${s}');A.nav('orders')">${s.charAt(0).toUpperCase()+s.slice(1)} (${s==='all'?ords.length:ords.filter(o=>o.status===s).length})</button>`).join('')}</div>
     ${list.length===0?'<div class="empty"><span class="material-icons-round">shopping_cart</span><h3>No orders found</h3></div>':''}
-    ${list.length>0?`<div class="card"><div class="tw"><table><thead><tr><th>Order ID</th><th>Pharmacy</th><th>Drugs</th><th>Date</th><th>Total</th><th>Delivery</th><th>Status</th><th>Actions</th></tr></thead><tbody>${list.map(o=>`<tr><td style="font-family:monospace;font-size:.8rem">${o.id}</td><td>${o.phName}</td><td><div style="max-width:180px">${o.drugs.map(d=>`<div style="font-size:.8rem">${d.name} <span style="color:var(--acc)">×${d.qty}</span></div>`).join('')}</div></td><td>${o.date}</td><td style="font-weight:700;color:var(--txt)">₹${this.fmt(o.tot)}</td><td>${o.del==='free'?'<span class="badge b-ok">Free</span>':'<span class="badge b-gray">Paid</span>'}</td><td>${this.sbadge(o.status)}</td><td><div class="ta"><button class="btn btn-sm btn-s" onclick="A.vOrder('${o.id}')">View</button>${o.status==='pending'?`<button class="btn btn-sm btn-ok" onclick="A.approveOrd('${o.id}')">Approve</button>`:''}${o.status==='approved'?`<button class="btn btn-sm btn-p" onclick="A.deliverOrd('${o.id}')">Deliver</button>`:''}</div></td></tr>`).join('')}</tbody></table></div></div>`:''}`;
+    ${list.length>0?`<div class="card"><div class="tw"><table><thead><tr><th>Order ID</th><th>Pharmacy</th><th>Drugs</th><th>Date</th><th>Total</th><th>Challan</th><th>Status</th><th>Actions</th></tr></thead><tbody>${list.map(o=>`<tr><td style="font-family:monospace;font-size:.8rem">${o.id}${o.id.includes('WA')?'<span class="badge b-ok" style="margin-left:4px;font-size:.6rem">WA</span>':''}</td><td>${o.phName}</td><td><div style="max-width:180px">${o.drugs.map(d=>`<div style="font-size:.8rem">${d.name} <span style="color:var(--acc)">×${d.qty}</span></div>`).join('')}</div></td><td>${o.date}</td><td style="font-weight:700;color:var(--txt)">₹${this.fmt(o.tot)}</td><td style="font-family:monospace;font-size:.72rem;color:var(--mute)">${o.challan_no||'—'}</td><td>${this.sbadge(o.status)}</td><td><div class="ta"><button class="btn btn-sm btn-s" onclick="A.vOrder('${o.id}')">View</button>${o.status==='pending'?`<button class="btn btn-sm btn-ok" onclick="A.approveOrd('${o.id}')">Approve</button>`:''}${o.status==='approved'?`<button class="btn btn-sm btn-p" onclick="A.dispatchOrd('${o.id}')"><span class="material-icons-round" style="font-size:14px">local_shipping</span>Dispatch</button>`:''}${o.status==='dispatched'?`<button class="btn btn-sm btn-ok" onclick="A.deliverOrd('${o.id}')">Delivered</button>`:''}</div></td></tr>`).join('')}</tbody></table></div></div>`:''}`;
   },
   async approveOrd(id){const o=this.data.orders.find(o=>o.id===id);if(!o)return;await apiPut('/orders/'+id,{status:'approved'});o.status='approved';this.addNotif('order','Order '+id+' approved!',false,o.phId);this.showBrowserNotif('Order Approved','Order '+id+' has been approved');this.toast(id+' approved!','ok');this.nav('orders');},
-  async dispatchOrd(id){const o=this.data.orders.find(o=>o.id===id);if(!o)return;await apiPut('/orders/'+id,{status:'dispatched'});o.status='dispatched';this.addNotif('order','Order '+id+' dispatched — on the way!',false,o.phId);this.showBrowserNotif('Order Dispatched','Order '+id+' is on its way!');this.toast(id+' dispatched!','ok');this.nav('orders');},
+  async dispatchOrd(id){
+    const o=this.data.orders.find(o=>o.id===id);if(!o)return;
+    const res=await apiPost('/orders/'+id+'/dispatch',{});
+    if(res?.ok){
+      o.status='dispatched';
+      o.challan_no=res.challanNo;
+      o.dispatch_date=res.dispatchDate;
+      this.showModal('📦 Order Dispatched!',`
+        <div style="text-align:center;padding:20px 0">
+          <span class="material-icons-round" style="font-size:56px;color:var(--ok)">local_shipping</span>
+          <div style="font-size:1.1rem;font-weight:700;margin:12px 0 4px">Order ${id} dispatched</div>
+          <div style="color:var(--mute);margin-bottom:16px">Pharmacy has been notified</div>
+          <div style="background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.25);border-radius:10px;padding:16px">
+            <div style="font-size:.75rem;color:var(--mute);margin-bottom:4px">CHALLAN NUMBER</div>
+            <div style="font-family:monospace;font-size:1.2rem;font-weight:800;color:var(--acc);letter-spacing:1px">${res.challanNo}</div>
+            <div style="font-size:.75rem;color:var(--mute);margin-top:8px">Dispatch Date: ${res.dispatchDate}</div>
+          </div>
+        </div>`,
+        `<button class="btn btn-s" onclick="A.closeModal()">Close</button><button class="btn btn-ok" onclick="A.closeModal();A.nav('orders')">View Orders</button>`);
+    } else { this.toast('Dispatch failed','err'); }
+  },
   async deliverOrd(id){const o=this.data.orders.find(o=>o.id===id);if(!o)return;await apiPut('/orders/'+id,{status:'delivered'});o.status='delivered';if(!o.billed){await this.genBill(id,true);}this.addNotif('order','Order '+id+' delivered!',false,o.phId);this.showBrowserNotif('Order Delivered','Order '+id+' has been delivered');this.toast(id+' delivered!','ok');this.nav('orders');},
   async genBill(ordId,silent=false){const o=this.data.orders.find(o=>o.id===ordId);if(!o||o.billed)return;const b={id:'BILL-'+Date.now(),phId:o.phId,phName:o.phName,ordId,amt:o.tot,date:new Date().toLocaleDateString('en-CA'),due:new Date(Date.now()+15*864e5).toLocaleDateString('en-CA'),status:'unpaid',type:'bulk',paid:null};this.data.bills.push(b);o.billed=true;this.save();if(!silent){this.addNotif('payment','Bill '+b.id+' – ₹'+this.fmt(b.amt),false,o.phId);this.toast('Bill generated!','ok');}},
   vOrder(id){
     const o=this.data.orders.find(o=>o.id===id);if(!o)return;
-    this.showModal('Order – '+o.id,`<div class="ic" style="margin-bottom:14px"><div class="icg"><div class="if"><label>Order ID</label><span style="font-family:monospace">${o.id}</span></div><div class="if"><label>Date</label><span>${o.date}</span></div><div class="if"><label>Pharmacy</label><span>${o.phName}</span></div><div class="if"><label>Status</label><span>${this.sbadge(o.status)}</span></div><div class="if"><label>Delivery</label><span>${o.del==='free'?'Free':'Paid'}</span></div><div class="if"><label>Notes</label><span>${o.notes||'—'}</span></div></div></div><table><thead><tr><th>Drug</th><th>Qty</th><th>Unit</th><th>Total</th></tr></thead><tbody>${o.drugs.map(d=>`<tr><td>${d.name}</td><td>${d.qty}</td><td>₹${d.up.toFixed(2)}</td><td>₹${d.tot.toFixed(2)}</td></tr>`).join('')}<tr><td colspan="3" style="text-align:right;font-weight:700">Subtotal</td><td>₹${o.sub.toFixed(2)}</td></tr><tr><td colspan="3" style="text-align:right;font-weight:700">GST (5%)</td><td>₹${o.gst.toFixed(2)}</td></tr><tr><td colspan="3" style="text-align:right;font-weight:800;color:var(--txt)">Total</td><td style="font-weight:800;color:var(--acc)">₹${this.fmt(o.tot)}</td></tr></tbody></table>`,
-    `<button class="btn btn-s" onclick="A.closeModal()">Close</button>${o.status==='pending'?`<button class="btn btn-ok" onclick="A.closeModal();A.approveOrd('${o.id}')">Approve</button>`:''}`);
+    // Status timeline
+    const steps=['pending','approved','dispatched','delivered'];
+    const si=steps.indexOf(o.status);
+    const timeline=`<div style="display:flex;align-items:center;justify-content:center;gap:0;margin:16px 0;padding:14px;background:var(--inp);border-radius:var(--r)">
+      ${steps.map((s,i)=>{
+        const done=i<=si;const icons={pending:'receipt',approved:'check_circle',dispatched:'local_shipping',delivered:'done_all'};
+        return`<div style="display:flex;flex-direction:column;align-items:center;flex:1">
+          <div style="width:36px;height:36px;border-radius:50%;background:${done?'var(--acc)':'rgba(255,255,255,.05)'};border:2px solid ${done?'var(--acc)':'var(--bdr)'};display:flex;align-items:center;justify-content:center;transition:.3s">
+            <span class="material-icons-round" style="font-size:17px;color:${done?'#fff':'var(--mute)'}">${icons[s]}</span>
+          </div>
+          <div style="font-size:.65rem;color:${done?'var(--txt)':'var(--mute)'};margin-top:5px;font-weight:${done?700:400};text-transform:capitalize">${s}</div>
+        </div>
+        ${i<steps.length-1?`<div style="height:2px;flex:1;background:${i<si?'var(--acc)':'var(--bdr)'};margin-bottom:18px"></div>`:''}`;
+      }).join('')}
+    </div>`;
+    this.showModal('Order – '+o.id,`
+      ${timeline}
+      ${o.challan_no?`<div style="background:rgba(0,212,142,.07);border:1px solid rgba(0,212,142,.25);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <span class="material-icons-round" style="color:var(--ok)">local_shipping</span>
+        <div><div style="font-size:.7rem;color:var(--mute)">Challan No</div><div style="font-family:monospace;font-weight:700;color:var(--ok)">${o.challan_no}</div></div>
+        <div style="margin-left:auto"><div style="font-size:.7rem;color:var(--mute)">Dispatched</div><div style="font-size:.82rem">${o.dispatch_date||'—'}</div></div>
+      </div>`:''}
+      <div class="ic" style="margin-bottom:14px"><div class="icg">
+        <div class="if"><label>Order ID</label><span style="font-family:monospace">${o.id}</span></div>
+        <div class="if"><label>Date</label><span>${o.date}</span></div>
+        <div class="if"><label>Pharmacy</label><span>${o.phName}</span></div>
+        <div class="if"><label>Status</label><span>${this.sbadge(o.status)}</span></div>
+        <div class="if"><label>Delivery</label><span>${o.del==='free'?'Free':'Paid'}</span></div>
+        <div class="if"><label>Notes</label><span>${o.notes||'—'}</span></div>
+      </div></div>
+      <table><thead><tr><th>Drug</th><th>Qty</th><th>Unit ₹</th><th>Total ₹</th></tr></thead><tbody>
+        ${o.drugs.map(d=>`<tr><td>${d.name}</td><td>${d.qty}</td><td>₹${(d.up||0).toFixed(2)}</td><td>₹${(d.tot||0).toFixed(2)}</td></tr>`).join('')}
+        <tr><td colspan="3" style="text-align:right;font-weight:700">Subtotal</td><td>₹${(o.sub||0).toFixed(2)}</td></tr>
+        <tr><td colspan="3" style="text-align:right;font-weight:700">GST (5%)</td><td>₹${(o.gst||0).toFixed(2)}</td></tr>
+        <tr><td colspan="3" style="text-align:right;font-weight:800;color:var(--txt)">Total</td><td style="font-weight:800;color:var(--acc)">₹${this.fmt(o.tot)}</td></tr>
+      </tbody></table>`,
+    `<button class="btn btn-s" onclick="A.closeModal()">Close</button>
+     ${o.status==='pending'?`<button class="btn btn-ok" onclick="A.closeModal();A.approveOrd('${o.id}')">Approve</button>`:''}
+     ${o.status==='approved'?`<button class="btn btn-p" onclick="A.closeModal();A.dispatchOrd('${o.id}')"><span class="material-icons-round">local_shipping</span>Dispatch</button>`:''}
+     ${o.status==='dispatched'?`<button class="btn btn-ok" onclick="A.closeModal();A.deliverOrd('${o.id}')">Mark Delivered</button>`:''}
+     ${!o.billed&&o.status!=='pending'?`<button class="btn btn-s" onclick="A.genBill('${o.id}')">Generate Bill</button>`:''}`);
   },
+
+  newOrderModal(){
+    this.showModal('Create Order for Pharmacy',`
+      <div class="fg"><label>Pharmacy</label><select id="no-ph">${this.data.pharmacies.filter(p=>p.status==='active').map(p=>`<option value="${p.id}">${p.name}${p.ph_type==='hospital'?' 🏥':''}</option>`).join('')}</select></div>
+      <div class="fg"><label>Notes</label><input id="no-notes" placeholder="e.g. Urgent, handle with care"></div>
+      <div style="font-size:.75rem;color:var(--mute);margin:10px 0 6px">For pharmacy-placed orders, ask pharmacy to log in and place order directly.</div>`,
+    `<button class="btn btn-s" onclick="A.closeModal()">Cancel</button><button class="btn btn-p" onclick="A.nav('quotations')"><span class="material-icons-round">description</span>Create Quotation Instead</button>`);
+  },
+
 
   // ===== ADMIN SUBSCRIPTIONS =====
   rSubs(){
@@ -591,58 +667,163 @@ const A = {
       this.toast('Failed to create bill \u2013 server error','err');
     }
   },
+  // HSN code + GST rate by category
+  _hsnMap:{
+    'Analgesic':{hsn:'3004',gst:12},'Antibiotic':{hsn:'3004',gst:12},'Antidiabetic':{hsn:'3004',gst:12},
+    'Antihypertensive':{hsn:'3004',gst:12},'Antihistamine':{hsn:'3004',gst:12},'Statin':{hsn:'3004',gst:12},
+    'PPI':{hsn:'3004',gst:12},'Antifungal':{hsn:'3004',gst:12},'Antiviral':{hsn:'3004',gst:12},
+    'Vitamin':{hsn:'2106',gst:18},'Other':{hsn:'3004',gst:12}
+  },
+
   vBill(id){
     const b=this.data.bills.find(b=>b.id===id);if(!b)return;
     const d=this.data.dist;
     const ph=this.data.pharmacies.find(p=>p.id===b.phId)||{};
-    const body=`<div style="font-family:Inter,Arial,sans-serif;background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r);padding:22px">
-      <!-- Header: Distributor + Invoice -->
+    // Get order drugs for line items
+    const ord=this.data.orders.find(o=>o.id===b.ordId);
+    const items=ord?.drugs||[];
+    // Build GST summary
+    const gstGroups={};
+    items.forEach(item=>{
+      const cat=item.cat||item.category||'Other';
+      const {hsn,gst:rate}=this._hsnMap[cat]||{hsn:'3004',gst:12};
+      const taxable=(item.up||item.price||0)*item.qty;
+      const cgst=taxable*(rate/2)/100;
+      const sgst=taxable*(rate/2)/100;
+      if(!gstGroups[rate])gstGroups[rate]={rate,taxable:0,cgst:0,sgst:0};
+      gstGroups[rate].taxable+=taxable;
+      gstGroups[rate].cgst+=cgst;
+      gstGroups[rate].sgst+=sgst;
+    });
+    const taxable=items.reduce((s,i)=>s+(i.up||0)*i.qty,0)||b.amt/1.05;
+    const totalGST=b.amt-taxable;
+    const body=`<div style="font-family:Inter,Arial,sans-serif;background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r);padding:22px" id="inv-body-${b.id}">
+      <!-- Header -->
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid var(--acc)">
         <div>
           <div style="font-size:1.3rem;font-weight:800;color:var(--acc)">${d.name||'PharmaDist Pro'}</div>
           <div style="font-size:.78rem;color:var(--txt2);margin-top:3px">${d.address||'—'}</div>
-          <div style="font-size:.78rem;color:var(--txt2);margin-top:2px">📞 ${d.phone||d.mobile||'—'}</div>
-          <div style="font-size:.78rem;color:var(--txt2);margin-top:2px">📧 ${d.email||'—'}</div>
-          ${d.gst?`<div style="font-size:.78rem;color:var(--txt2);margin-top:2px">GST: <strong>${d.gst}</strong></div>`:''}
-          ${d.license?`<div style="font-size:.78rem;color:var(--txt2);margin-top:2px">License: ${d.license}</div>`:''}
-          ${d.upi?`<div style="font-size:.78rem;color:var(--acc);margin-top:3px">UPI: ${d.upi}</div>`:''}
+          <div style="font-size:.78rem;color:var(--txt2);margin-top:2px">📞 ${d.phone||d.mobile||'—'} &nbsp;|&nbsp; 📧 ${d.email||'—'}</div>
+          ${d.gst?`<div style="font-size:.78rem;color:var(--txt2);margin-top:2px">GSTIN: <strong style="color:var(--acc)">${d.gst}</strong></div>`:''}
+          ${d.license?`<div style="font-size:.78rem;color:var(--txt2);margin-top:2px">Drug License: ${d.license}</div>`:''}
         </div>
         <div style="text-align:right">
-          <div style="font-size:1.1rem;font-weight:800;letter-spacing:1px">TAX INVOICE</div>
-          <div style="font-family:monospace;color:var(--mute);font-size:.85rem;margin-top:4px">${b.id}</div>
+          <div style="font-size:1.1rem;font-weight:800;letter-spacing:1px;color:var(--txt)">TAX INVOICE</div>
+          <div style="font-family:monospace;color:var(--acc);font-size:.9rem;margin-top:4px">${b.id}</div>
           <div style="margin-top:8px">${b.status==='paid'?'<span class="badge b-ok" style="font-size:.85rem">✔ PAID</span>':b.status==='pending_verification'?'<span class="badge b-warn" style="font-size:.85rem">⏳ VERIFYING</span>':'<span class="badge b-err" style="font-size:.85rem">✗ UNPAID</span>'}</div>
         </div>
       </div>
       <!-- Billed To + Dates -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
         <div style="background:rgba(108,99,255,.06);border-radius:8px;padding:12px">
-          <div style="font-size:.68rem;color:var(--mute);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Billed To</div>
+          <div style="font-size:.68rem;color:var(--mute);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Bill To</div>
           <div style="font-weight:700;color:var(--txt)">${b.phName}</div>
           ${ph.address?`<div style="font-size:.78rem;color:var(--txt2);margin-top:3px">${ph.address}</div>`:''}
           ${ph.contact?`<div style="font-size:.78rem;color:var(--txt2);margin-top:2px">📞 ${ph.contact}</div>`:''}
-          ${ph.email?`<div style="font-size:.78rem;color:var(--txt2);margin-top:2px">📧 ${ph.email}</div>`:''}
-          ${ph.license?`<div style="font-size:.78rem;color:var(--txt2);margin-top:2px">Lic: ${ph.license}</div>`:''}
+          ${ph.license?`<div style="font-size:.78rem;color:var(--acc);margin-top:2px;font-family:monospace">DL: ${ph.license}</div>`:''}
         </div>
         <div style="background:rgba(108,99,255,.06);border-radius:8px;padding:12px">
-          <div style="font-size:.68rem;color:var(--mute);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Invoice Details</div>
+          <div style="font-size:.68rem;color:var(--mute);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Invoice Details</div>
           <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:5px"><span style="color:var(--mute)">Invoice Date</span><strong>${b.date||'—'}</strong></div>
           <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:5px"><span style="color:var(--mute)">Due Date</span><strong style="color:${b.status!=='paid'?'var(--err)':'var(--ok)'}">${b.due||'—'}</strong></div>
-          <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:5px"><span style="color:var(--mute)">Type</span><span class="badge b-gray">${b.type||'bulk'}</span></div>
-          <div style="display:flex;justify-content:space-between;font-size:.82rem"><span style="color:var(--mute)">Order Ref</span><code style="font-size:.75rem">${b.ordId||'MANUAL'}</code></div>
-          ${b.paid?`<div style="display:flex;justify-content:space-between;font-size:.82rem;margin-top:5px"><span style="color:var(--mute)">Paid On</span><strong style="color:var(--ok)">${b.paid}</strong></div>`:''}
+          <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:5px"><span style="color:var(--mute)">Order Ref</span><code style="font-size:.75rem">${b.ordId||'MANUAL'}</code></div>
+          ${b.paid?`<div style="display:flex;justify-content:space-between;font-size:.82rem"><span style="color:var(--mute)">Paid On</span><strong style="color:var(--ok)">${b.paid}</strong></div>`:''}
         </div>
       </div>
-      <!-- Amount -->
-      <div style="background:linear-gradient(135deg,rgba(108,99,255,.1),rgba(0,212,255,.08));border:1px solid rgba(108,99,255,.25);border-radius:10px;padding:16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:${d.upi&&b.status!=='paid'?12:0}px">
-        <div style="font-size:.875rem;color:var(--mute)">Total Amount Due</div>
-        <div style="font-size:1.75rem;font-weight:800;color:var(--acc)">₹${this.fmt(b.amt)}</div>
+      <!-- Line Items -->
+      ${items.length>0?`
+      <div style="margin-bottom:14px">
+        <div style="font-size:.72rem;color:var(--mute);font-weight:700;margin-bottom:7px;text-transform:uppercase">Items</div>
+        <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+          <thead>
+            <tr style="background:rgba(255,255,255,.03)">
+              <th style="padding:7px 9px;text-align:left;color:var(--mute);font-size:.7rem;text-transform:uppercase;border-bottom:1px solid var(--bdr);white-space:nowrap">#</th>
+              <th style="padding:7px 9px;text-align:left;color:var(--mute);font-size:.7rem;text-transform:uppercase;border-bottom:1px solid var(--bdr)">Drug Name</th>
+              <th style="padding:7px 9px;text-align:center;color:var(--mute);font-size:.7rem;text-transform:uppercase;border-bottom:1px solid var(--bdr)">HSN</th>
+              <th style="padding:7px 9px;text-align:center;color:var(--mute);font-size:.7rem;text-transform:uppercase;border-bottom:1px solid var(--bdr)">Qty</th>
+              <th style="padding:7px 9px;text-align:right;color:var(--mute);font-size:.7rem;text-transform:uppercase;border-bottom:1px solid var(--bdr)">Unit ₹</th>
+              <th style="padding:7px 9px;text-align:center;color:var(--mute);font-size:.7rem;text-transform:uppercase;border-bottom:1px solid var(--bdr)">GST%</th>
+              <th style="padding:7px 9px;text-align:right;color:var(--mute);font-size:.7rem;text-transform:uppercase;border-bottom:1px solid var(--bdr)">Taxable ₹</th>
+              <th style="padding:7px 9px;text-align:right;color:var(--mute);font-size:.7rem;text-transform:uppercase;border-bottom:1px solid var(--bdr)">Total ₹</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map((item,i)=>{
+              const cat=item.cat||item.category||'Other';
+              const {hsn,gst:rate}=this._hsnMap[cat]||{hsn:'3004',gst:12};
+              const up=item.up||item.price||0;
+              const taxableAmt=up*item.qty;
+              const gstAmt=taxableAmt*rate/100;
+              const total=taxableAmt+gstAmt;
+              return`<tr><td style="padding:8px 9px;border-bottom:1px solid var(--bdr);color:var(--mute)">${i+1}</td>
+                <td style="padding:8px 9px;border-bottom:1px solid var(--bdr);font-weight:600;color:var(--txt)">${item.name}</td>
+                <td style="padding:8px 9px;border-bottom:1px solid var(--bdr);text-align:center;font-family:monospace;font-size:.75rem;color:var(--mute)">${hsn}</td>
+                <td style="padding:8px 9px;border-bottom:1px solid var(--bdr);text-align:center;color:var(--txt)">${item.qty}</td>
+                <td style="padding:8px 9px;border-bottom:1px solid var(--bdr);text-align:right">₹${up.toFixed(2)}</td>
+                <td style="padding:8px 9px;border-bottom:1px solid var(--bdr);text-align:center"><span class="badge b-gray" style="font-size:.68rem">${rate}%</span></td>
+                <td style="padding:8px 9px;border-bottom:1px solid var(--bdr);text-align:right">₹${taxableAmt.toFixed(2)}</td>
+                <td style="padding:8px 9px;border-bottom:1px solid var(--bdr);text-align:right;font-weight:700;color:var(--txt)">₹${(taxableAmt+(taxableAmt*rate/100)).toFixed(2)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`:''}
+      <!-- GST Summary + Totals -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+        <div style="background:rgba(108,99,255,.05);border-radius:8px;padding:12px">
+          <div style="font-size:.72rem;color:var(--mute);font-weight:700;margin-bottom:8px;text-transform:uppercase">GST Breakup</div>
+          ${(()=>{const gv=Object.values(gstGroups);if(gv.length>0)return gv.map(g=>('<div style="display:flex;justify-content:space-between;font-size:.8rem;padding:4px 0;border-bottom:1px solid var(--bdr)"><span style="color:var(--mute)">CGST @'+g.rate/2+'%</span><span>\u20b9'+g.cgst.toFixed(2)+'</span></div><div style="display:flex;justify-content:space-between;font-size:.8rem;padding:4px 0;border-bottom:1px solid var(--bdr)"><span style="color:var(--mute)">SGST @'+g.rate/2+'%</span><span>\u20b9'+g.sgst.toFixed(2)+'</span></div>')).join('');return '<div style="display:flex;justify-content:space-between;font-size:.8rem;padding:4px 0;border-bottom:1px solid var(--bdr)"><span style="color:var(--mute)">CGST @2.5%</span><span>\u20b9'+(totalGST/2).toFixed(2)+'</span></div><div style="display:flex;justify-content:space-between;font-size:.8rem;padding:4px 0"><span style="color:var(--mute)">SGST @2.5%</span><span>\u20b9'+(totalGST/2).toFixed(2)+'</span></div>';})()}
+          <div style="display:flex;justify-content:space-between;font-size:.82rem;padding:6px 0;margin-top:4px;font-weight:700;border-top:1px solid var(--bdr)">
+            <span>Total Tax</span><span style="color:var(--warn)">₹${totalGST.toFixed(2)}</span>
+          </div>
+        </div>
+        <div style="background:linear-gradient(135deg,rgba(108,99,255,.1),rgba(0,212,255,.08));border:1px solid rgba(108,99,255,.25);border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:center">
+          <div style="display:flex;justify-content:space-between;font-size:.82rem;padding:4px 0"><span style="color:var(--mute)">Taxable Value</span><span>₹${taxable.toFixed(2)}</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:.82rem;padding:4px 0"><span style="color:var(--mute)">Total GST</span><span>₹${totalGST.toFixed(2)}</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:1.2rem;font-weight:800;padding:8px 0 0;border-top:1px solid rgba(108,99,255,.3);margin-top:6px">
+            <span style="color:var(--txt)">Grand Total</span><span style="color:var(--acc)">₹${this.fmt(b.amt)}</span>
+          </div>
+        </div>
       </div>
-      <!-- UPI Payment hint -->
-      ${d.upi&&b.status!=='paid'?`<div style="background:rgba(0,212,142,.06);border:1px solid rgba(0,212,142,.25);border-radius:8px;padding:10px 14px;font-size:.8rem;display:flex;align-items:center;gap:8px"><span class="material-icons-round" style="font-size:18px;color:var(--ok)">qr_code</span><span>Pay via UPI: <strong>${d.upi}</strong> and submit UTR reference</span></div>`:''}
+      <!-- UPI hint -->
+      ${d.upi&&b.status!=='paid'?`<div style="background:rgba(0,212,142,.06);border:1px solid rgba(0,212,142,.25);border-radius:8px;padding:10px 14px;font-size:.8rem;display:flex;align-items:center;gap:8px"><span class="material-icons-round" style="font-size:18px;color:var(--ok)">qr_code</span><span>Pay via UPI: <strong>${d.upi}</strong> · Submit UTR after payment</span></div>`:''}
+      <!-- Footer -->
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--bdr);font-size:.72rem;color:var(--mute);text-align:center">This is a computer-generated invoice and does not require a physical signature. ${d.name||'PharmaDist Pro'}</div>
     </div>`;
-    const foot=`<button class="btn btn-s" onclick="A.closeModal()">Close</button><button class="btn btn-sm btn-s" onclick="A.shareBillWA('${b.id}')"><span class="material-icons-round">share</span>WhatsApp</button><button class="btn btn-s" onclick="A.printBill('${b.id}')"><span class="material-icons-round">print</span>Print</button>${b.status==='unpaid'?`<button class="btn btn-ok" onclick="A.closeModal();A.markPaid('${b.id}')">Mark Paid</button>`:''}${b.status==='pending_verification'?`<div style="margin-bottom:10px;padding:10px;background:rgba(255,181,71,.1);border:1px solid var(--warn);border-radius:8px;font-size:.875rem"><strong>UTR:</strong> ${b.utr||'—'} <span class="badge b-gray" style="margin-left:6px">${b.payMethod||'UPI'}</span></div><button class="btn btn-ok" onclick="A.closeModal();A.verifyPayment('${b.id}')"><span class="material-icons-round">verified</span>Confirm Payment</button>`:''}`;
-    this.showModal('Invoice – '+b.id,body,foot,'mdl-lg');
+    const foot=`<button class="btn btn-s" onclick="A.closeModal()">Close</button>
+      <button class="btn btn-sm btn-s" onclick="A.shareBillWA('${b.id}')"><span class="material-icons-round">share</span>WhatsApp</button>
+      <button class="btn btn-s" onclick="A.printBill('${b.id}')"><span class="material-icons-round">print</span>Print / PDF</button>
+      ${b.status==='unpaid'?`<button class="btn btn-ok" onclick="A.closeModal();A.markPaid('${b.id}')">Mark Paid</button>`:''}
+      ${b.status==='pending_verification'?`<button class="btn btn-ok" onclick="A.closeModal();A.verifyPayment('${b.id}')"><span class="material-icons-round">verified</span>Confirm Payment</button>`:''}`;
+    this.showModal('GST Invoice – '+b.id,body,foot,'mdl-lg');
   },
+
+  printBill(id){
+    const el=Q('#inv-body-'+id);if(!el)return;
+    const w=window.open('','_blank','width=860,height=700');
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+      <title>Invoice ${id}</title>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+      <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:'Inter',Arial,sans-serif;background:#fff;color:#111;padding:32px;max-width:860px;margin:0 auto}
+        .badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:99px;font-size:.72rem;font-weight:700}
+        table{width:100%;border-collapse:collapse;font-size:.82rem}
+        th,td{padding:8px 10px;border-bottom:1px solid #e5e7eb}
+        th{font-size:.7rem;text-transform:uppercase;color:#6b7280;font-weight:700}
+        @media print{body{padding:16px}@page{margin:12mm}}
+      </style>
+    </head><body>
+      ${el.outerHTML.replace(/var\(--[^)]+\)/g,'#111').replace(/background:[^;]+;/g,'').replace(/color:var[^;]+;/g,'color:#111;')}
+      <script>window.onload=()=>{window.print();}<\/script>
+    </body></html>`);
+    w.document.close();
+  },
+
+
+
+
+
 
   // ===== ADMIN RETURNS =====
   rAdminReturns(){
@@ -893,6 +1074,87 @@ const A = {
     const tk={phId:ph.id,phName:ph.name,subject:sub,type:Q('#tt')?.value||'other',date:new Date().toLocaleDateString('en-IN'),status:'open',msgs:[{from:'pharmacy',text:Q('#td')?.value||sub,time:new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}]};const res=await apiPost('/tickets',tk);if(res?.ok){tk.id=res.id;this.data.tickets.push(tk);}this.toast('Ticket submitted! We\'ll respond shortly.','ok');this.nav('support');
   },
 
+
+  // ===== QUOTATIONS (Feature 6 — Hospital Module) =====
+  rQuotations(){
+    return`<div class="ph"><div class="pt"><h1>Quotations</h1><p>Create price quotations for hospital & retail pharmacies.</p></div><button class="btn btn-p" onclick="A.quotationModal()"><span class="material-icons-round">add</span>New Quotation</button></div>
+    <div class="card" id="quo-wrap"><div class="cb" style="text-align:center;padding:40px"><span class="material-icons-round" style="font-size:48px;color:var(--acc);animation:spin 1s linear infinite">autorenew</span><p style="color:var(--mute);margin-top:10px">Loading quotations...</p></div></div>`;
+  },
+  async loadQuotations(){
+    const rows=await apiGet('/quotations');
+    const el=Q('#quo-wrap');if(!el)return;
+    if(!rows||!rows.length){el.innerHTML='<div class="empty"><span class="material-icons-round">request_quote</span><h3>No quotations yet</h3><p>Create your first quotation for a pharmacy</p></div>';return;}
+    el.innerHTML=`<div class="tw"><table><thead><tr><th>ID</th><th>Pharmacy</th><th>Items</th><th>Valid Until</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+      ${rows.map(q=>`<tr>
+        <td style="font-family:monospace;font-size:.8rem">${q.id}</td>
+        <td>${q.ph_name}</td>
+        <td style="font-size:.8rem">${(q.items||[]).slice(0,3).map(i=>i.name+(i.qty?` ×${i.qty}`:'')).join(', ')}${q.items?.length>3?'…':''}</td>
+        <td>${q.valid_until||'—'}</td>
+        <td>${this.sbadge(q.status||'draft')}</td>
+        <td><div class="ta">
+          <button class="btn btn-sm btn-s" onclick="A.vQuotation(${JSON.stringify(q).replace(/"/g,"'")})">View</button>
+          <button class="btn btn-sm btn-ok" onclick="A.convertQuoToOrder('${q.id}','${q.ph_id}','${q.ph_name}')">→ Order</button>
+        </div></td>
+      </tr>`).join('')}
+    </tbody></table></div>`;
+  },
+  quotationModal(){
+    const phs=this.data.pharmacies.filter(p=>p.status==='active');
+    this.showModal('Create Quotation',`
+      <div class="fg"><label>Pharmacy</label><select id="q-ph">${phs.map(p=>`<option value="${p.id}">${p.name}${p.ph_type==='hospital'?' 🏥':''}</option>`).join('')}</select></div>
+      <div class="fg"><label>Valid Until</label><input id="q-vd" type="date" value="${new Date(Date.now()+30*864e5).toLocaleDateString('en-CA')}"></div>
+      <div style="font-size:.75rem;color:var(--mute);margin-bottom:6px;font-weight:600">ITEMS</div>
+      <div id="q-items">
+        <div class="q-item fr" style="margin-bottom:6px">
+          <div class="fg" style="margin-bottom:0"><input class="q-name" placeholder="Medicine name"></div>
+          <div class="fg" style="margin-bottom:0;max-width:70px"><input class="q-qty" type="number" min="1" placeholder="Qty"></div>
+          <div class="fg" style="margin-bottom:0;max-width:90px"><input class="q-price" type="number" min="0" step="0.01" placeholder="₹/unit"></div>
+        </div>
+      </div>
+      <button class="btn btn-sm btn-s" onclick="A.addQuoItem()" style="margin-top:6px"><span class="material-icons-round">add</span>Add Item</button>
+      <div class="fg" style="margin-top:12px"><label>Note</label><input id="q-note" placeholder="Special terms, discounts..."></div>`,
+    `<button class="btn btn-s" onclick="A.closeModal()">Cancel</button><button class="btn btn-p" onclick="A.saveQuotation()"><span class="material-icons-round">save</span>Save Quotation</button>`);
+  },
+  addQuoItem(){
+    const c=Q('#q-items');const d=document.createElement('div');d.className='q-item fr';d.style.marginBottom='6px';
+    d.innerHTML='<div class="fg" style="margin-bottom:0"><input class="q-name" placeholder="Medicine name"></div><div class="fg" style="margin-bottom:0;max-width:70px"><input class="q-qty" type="number" min="1" placeholder="Qty"></div><div class="fg" style="margin-bottom:0;max-width:90px"><input class="q-price" type="number" min="0" step="0.01" placeholder="₹/unit"></div>';
+    c?.appendChild(d);
+  },
+  async saveQuotation(){
+    const phId=Q('#q-ph')?.value;const vd=Q('#q-vd')?.value;const note=Q('#q-note')?.value||'';
+    const items=[];
+    QA('.q-name').forEach((n,i)=>{const qty=QA('.q-qty')[i]?.value;const price=QA('.q-price')[i]?.value;if(n.value)items.push({name:n.value.trim(),qty:parseInt(qty)||0,price:parseFloat(price)||0});});
+    if(!phId||!items.length){this.toast('Select pharmacy and add at least one item','err');return;}
+    const res=await apiPost('/quotations',{phId,items,validUntil:vd,note,status:'sent'});
+    if(res?.ok){this.toast('Quotation created!','ok');this.closeModal();this.nav('quotations');}
+    else this.toast('Failed to create quotation','err');
+  },
+  vQuotation(q){
+    const body=`<div class="ic" style="margin-bottom:14px"><div class="icg">
+      <div class="if"><label>ID</label><span style="font-family:monospace">${q.id||q.i}</span></div>
+      <div class="if"><label>Pharmacy</label><span>${q.ph_name||q.ph_n}</span></div>
+      <div class="if"><label>Valid Until</label><span>${q.valid_until||q.v||'—'}</span></div>
+      <div class="if"><label>Status</label><span>${this.sbadge(q.status||'draft')}</span></div>
+    </div></div>
+    <table><thead><tr><th>Medicine</th><th>Qty</th><th>Unit ₹</th><th>Total ₹</th></tr></thead><tbody>
+      ${(q.items||[]).map(i=>`<tr><td>${i.name}</td><td>${i.qty||'—'}</td><td>₹${(i.price||0).toFixed(2)}</td><td>₹${((i.qty||0)*(i.price||0)).toFixed(2)}</td></tr>`).join('')}
+      <tr><td colspan="3" style="text-align:right;font-weight:800">Total</td><td style="font-weight:800;color:var(--acc)">₹${this.fmt((q.items||[]).reduce((s,i)=>s+(i.qty||0)*(i.price||0),0))}</td></tr>
+    </tbody></table>
+    ${q.note?`<div style="margin-top:12px;padding:10px;background:var(--inp);border-radius:8px;font-size:.82rem">${q.note}</div>`:''}`;
+    this.showModal('Quotation '+(q.id||q.i),body,`<button class="btn btn-s" onclick="A.closeModal()">Close</button>`,'mdl-lg');
+  },
+  async convertQuoToOrder(qId,phId,phName){
+    if(!confirm('Convert this quotation to an order?'))return;
+    const quo=await apiGet('/quotations');
+    const q=quo?.find(x=>x.id===qId);if(!q)return;
+    const drugs=(q.items||[]).map(i=>({name:i.name,qty:i.qty||1,up:i.price||0,tot:(i.qty||1)*(i.price||0)}));
+    const sub=drugs.reduce((s,i)=>s+i.tot,0);
+    const gst=sub*0.05;const tot=sub+gst;
+    const res=await apiPost('/orders',{type:'inventory',phId,phName,drugs,sub,gst:Math.round(gst*100)/100,tot:Math.round(tot*100)/100,date:new Date().toLocaleDateString('en-CA'),status:'pending',notes:'From Quotation '+qId});
+    if(res?.ok){this.toast('Order created from quotation!','ok');const ords=await apiGet('/orders');if(ords)this.data.orders=ords;this.nav('orders');}
+    else this.toast('Failed to create order','err');
+  },
+
   // ═══════════════════════════════════════════════════════════
   //  SECURE AUTH — Register / Forgot Password / Reset
   // ═══════════════════════════════════════════════════════════
@@ -1057,27 +1319,116 @@ const A = {
   // ═══════════════════════════════════════════════════════════
   rAnalytics(){
     const d=this.data;
-    return`<div class="ph"><div class="pt"><h1>SaaS Analytics</h1><p>Platform-wide metrics, tenant management, and revenue insights.</p></div><button class="btn btn-s" onclick="A.exportCSV('pharmacies')"><span class="material-icons-round">download</span>Pharmacies CSV</button><button class="btn btn-s" onclick="A.exportCSV('bills')"><span class="material-icons-round">download</span>Bills CSV</button><button class="btn btn-p" onclick="A.addPharmacyModal()"><span class="material-icons-round">add</span>Add Tenant</button></div>
+    return`<div class="ph"><div class="pt"><h1>SaaS Analytics</h1><p>Platform-wide metrics, revenue insights and payment ledger.</p></div><button class="btn btn-s" onclick="A.exportCSV('pharmacies')"><span class="material-icons-round">download</span>CSV</button><button class="btn btn-p" onclick="A.addPharmacyModal()"><span class="material-icons-round">add</span>Add Tenant</button></div>
     <div class="sg" id="an-grid">
-    <div class="sc p"><div class="sic p"><span class="material-icons-round">storefront</span></div><div><div class="sv" id="an-ph">—</div><div class="sl2">Total Tenants</div><div class="scc up" id="an-ph2"></div></div></div>
-    <div class="sc c"><div class="sic c"><span class="material-icons-round">currency_rupee</span></div><div><div class="sv" id="an-rev">—</div><div class="sl2">Total Revenue</div><div class="scc up" id="an-rev2"></div></div></div>
-    <div class="sc g"><div class="sic g"><span class="material-icons-round">card_membership</span></div><div><div class="sv" id="an-sub">—</div><div class="sl2">Active Subscriptions</div><div class="scc" id="an-sub2"></div></div></div>
-    <div class="sc o"><div class="sic o"><span class="material-icons-round">devices</span></div><div><div class="sv" id="an-sess">—</div><div class="sl2">Active Sessions</div><div class="scc" id="an-ord"></div></div></div>
+      <div class="sc p"><div class="sic p"><span class="material-icons-round">storefront</span></div><div><div class="sv" id="an-ph">—</div><div class="sl2">Total Tenants</div><div class="scc up" id="an-ph2"></div></div></div>
+      <div class="sc c"><div class="sic c"><span class="material-icons-round">currency_rupee</span></div><div><div class="sv" id="an-rev">—</div><div class="sl2">Total Revenue</div><div class="scc up" id="an-rev2"></div></div></div>
+      <div class="sc g"><div class="sic g"><span class="material-icons-round">card_membership</span></div><div><div class="sv" id="an-sub">—</div><div class="sl2">Active Subscriptions</div><div class="scc" id="an-sub2"></div></div></div>
+      <div class="sc o"><div class="sic o"><span class="material-icons-round">devices</span></div><div><div class="sv" id="an-sess">—</div><div class="sl2">Active Sessions</div><div class="scc" id="an-ord"></div></div></div>
     </div>
-    <div class="card" style="margin-top:14px"><div class="ch"><h3>Tenant Management</h3><span class="badge b-ok">${d.pharmacies.filter(p=>p.status==='active').length} Active</span></div><div class="tw"><table><thead><tr><th>Pharmacy</th><th>Email</th><th>Plan</th><th>Status</th><th>Revenue</th><th>Joined</th><th>Actions</th></tr></thead><tbody>${d.pharmacies.map(p=>{const rev=d.bills.filter(b=>b.phId===p.id&&b.status==='paid').reduce((s,b)=>s+b.amt,0);const pend=d.bills.filter(b=>b.phId===p.id&&b.status==='unpaid').reduce((s,b)=>s+b.amt,0);return`<tr><td><div style="font-weight:700">${p.name}</div></td><td style="font-size:.8rem;color:var(--mute)">${p.email}</td><td>${p.plan?`<span class="badge b-acc">₹${p.plan}/mo</span>`:'<span class="badge b-gray">No Plan</span>'}</td><td>${this.sbadge(p.status)}</td><td><div style="font-weight:700;color:var(--ok)">₹${this.fmt(rev)}</div>${pend>0?`<div style="font-size:.72rem;color:var(--err)">₹${this.fmt(pend)} pending</div>`:''}</td><td style="font-size:.8rem;color:var(--mute)">${p.joined}</td><td><div class="ta"><button class="btn btn-sm btn-s" onclick="A.phDetail('${p.id}')">View</button><button class="btn btn-sm btn-p" onclick="A.editPhModal('${p.id}')">Edit</button></div></td></tr>`;}).join('')}</tbody></table></div></div>`;
+    <div class="cr" style="margin-top:14px">
+      <div class="card"><div class="ch"><h3>Monthly Revenue</h3><span class="badge b-ok">Live</span></div><div class="cc"><canvas id="an-rev-chart"></canvas></div></div>
+      <div class="card"><div class="ch"><h3>Orders Trend</h3></div><div class="cc"><canvas id="an-ord-chart"></canvas></div></div>
+    </div>
+    <div class="cr" style="margin-top:14px">
+      <div class="card"><div class="ch"><h3>Top Medicines Ordered</h3><span class="badge b-acc">By Qty</span></div><div class="cc" style="height:220px"><canvas id="an-med-chart"></canvas></div></div>
+      <div class="card"><div class="ch"><h3>Top Pharmacies by Revenue</h3></div><div class="cc" style="height:220px"><canvas id="an-ph-chart"></canvas></div></div>
+    </div>
+    <div class="card" style="margin-top:14px"><div class="ch"><h3>💳 Payment Ledger — Outstanding</h3><span class="badge b-err" id="an-out-total">Loading…</span></div>
+      <div class="tw"><table><thead><tr><th>Pharmacy</th><th>Total Billed</th><th>Collected</th><th>Outstanding</th><th>Actions</th></tr></thead>
+      <tbody id="an-ledger-body"><tr><td colspan="5" style="text-align:center;padding:20px;color:var(--mute)"><span class="material-icons-round spin">autorenew</span></td></tr></tbody></table></div>
+    </div>
+    <div class="card" style="margin-top:14px"><div class="ch"><h3>Tenant Management</h3><span class="badge b-ok">${d.pharmacies.filter(p=>p.status==='active').length} Active</span></div><div class="tw"><table><thead><tr><th>Pharmacy</th><th>Email</th><th>Plan</th><th>Status</th><th>Revenue</th><th>Joined</th><th>Actions</th></tr></thead><tbody>${d.pharmacies.map(p=>{const rev=d.bills.filter(b=>b.phId===p.id&&b.status==='paid').reduce((s,b)=>s+b.amt,0);const pend=d.bills.filter(b=>b.phId===p.id&&b.status==='unpaid').reduce((s,b)=>s+b.amt,0);return`<tr><td><strong>${p.name}</strong></td><td style="font-size:.8rem;color:var(--mute)">${p.email}</td><td>${p.plan?`<span class="badge b-acc">₹${p.plan}/mo</span>`:'<span class="badge b-gray">No Plan</span>'}</td><td>${this.sbadge(p.status)}</td><td><div style="font-weight:700;color:var(--ok)">₹${this.fmt(rev)}</div>${pend>0?`<div style="font-size:.72rem;color:var(--err)">₹${this.fmt(pend)} pending</div>`:''}</td><td style="font-size:.8rem;color:var(--mute)">${p.joined}</td><td><div class="ta"><button class="btn btn-sm btn-s" onclick="A.phDetail('${p.id}')">View</button><button class="btn btn-sm btn-p" onclick="A.editPhModal('${p.id}')">Edit</button></div></td></tr>`;}).join('')}</tbody></table></div></div>`;
   },
 
   async loadAnalytics(){
-    const res=await apiGet('/admin/analytics');if(!res)return;
     const set=(id,v)=>{const el=Q('#'+id);if(el)el.textContent=v;};
-    set('an-ph',res.totalPharmacies);
-    set('an-ph2',`${res.activePharmacies} active · ${res.pendingPharmacies} pending`);
-    set('an-rev','₹'+this.fmt(res.totalRevenue));
-    set('an-rev2','+₹'+this.fmt(res.pendingRevenue)+' pending');
-    set('an-sub',res.premiumSubs+res.basicSubs);
-    set('an-sub2',`${res.premiumSubs} premium · ${res.basicSubs} basic`);
-    set('an-sess',res.activeSessions);
-    set('an-ord',res.totalOrders+' total orders');
+    const res=await apiGet('/admin/analytics');
+    if(res){
+      set('an-ph',res.totalPharmacies); set('an-ph2',`${res.activePharmacies} active · ${res.pendingPharmacies} pending`);
+      set('an-rev','₹'+this.fmt(res.totalRevenue)); set('an-rev2','+₹'+this.fmt(res.pendingRevenue)+' pending');
+      set('an-sub',res.premiumSubs+res.basicSubs); set('an-sub2',`${res.premiumSubs} premium · ${res.basicSubs} basic`);
+      set('an-sess',res.activeSessions); set('an-ord',res.totalOrders+' total orders');
+    }
+    const [revData,ordData,medData,phData,ledger]=await Promise.all([
+      apiGet('/analytics/revenue'), apiGet('/analytics/orders-trend'),
+      apiGet('/analytics/top-medicines'), apiGet('/analytics/top-pharmacies'),
+      apiGet('/ledger/summary')
+    ]);
+    const chartCfg={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7B9CC4'}},y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7B9CC4'}}}};
+    const c1=Q('#an-rev-chart')?.getContext('2d');
+    if(c1&&revData)this.st.charts.anRev=new Chart(c1,{type:'line',data:{labels:revData.map(r=>r.label),datasets:[{label:'Revenue',data:revData.map(r=>r.revenue),borderColor:'#6C63FF',backgroundColor:'rgba(108,99,255,.15)',borderWidth:2.5,fill:true,tension:.4,pointBackgroundColor:'#6C63FF',pointRadius:4}]},options:{...chartCfg,plugins:{legend:{display:false}},scales:{...chartCfg.scales,y:{...chartCfg.scales.y,ticks:{color:'#7B9CC4',callback:v=>'₹'+v}}}}});
+    const c2=Q('#an-ord-chart')?.getContext('2d');
+    if(c2&&ordData)this.st.charts.anOrd=new Chart(c2,{type:'bar',data:{labels:ordData.map(r=>r.label),datasets:[{label:'Orders',data:ordData.map(r=>r.orders),backgroundColor:'rgba(0,212,142,.7)',borderColor:'#00D48E',borderWidth:1,borderRadius:5}]},options:chartCfg});
+    const COLORS=['#6C63FF','#00D4FF','#00D48E','#FFB547','#FF4757','#3B82F6','#A855F7','#F97316'];
+    const c3=Q('#an-med-chart')?.getContext('2d');
+    if(c3&&medData?.length)this.st.charts.anMed=new Chart(c3,{type:'bar',data:{labels:medData.map(m=>m.name.length>20?m.name.slice(0,18)+'…':m.name),datasets:[{data:medData.map(m=>m.qty),backgroundColor:COLORS,borderRadius:4}]},options:{...chartCfg,indexAxis:'y',plugins:{legend:{display:false}}}});
+    const c4=Q('#an-ph-chart')?.getContext('2d');
+    if(c4&&phData?.length)this.st.charts.anPh=new Chart(c4,{type:'doughnut',data:{labels:phData.map(p=>p.name),datasets:[{data:phData.map(p=>p.total),backgroundColor:COLORS,borderColor:'#0E1826',borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#7B9CC4',padding:8,font:{size:10}}}},cutout:'60%'}});
+    const tbody=Q('#an-ledger-body');
+    if(tbody&&ledger){
+      const totalOut=ledger.reduce((s,r)=>s+r.outstanding,0);
+      const badge=Q('#an-out-total');if(badge)badge.textContent='₹'+this.fmt(totalOut)+' outstanding';
+      tbody.innerHTML=!ledger.length?'<tr><td colspan="5" style="text-align:center;color:var(--ok);padding:16px">✅ All payments up to date</td></tr>':
+        ledger.map(r=>`<tr>
+          <td><strong>${r.name}</strong></td>
+          <td>₹${this.fmt(r.totalBilled)}</td>
+          <td style="color:var(--ok)">₹${this.fmt(r.totalPaid)}</td>
+          <td style="font-weight:700;color:${r.outstanding>0?'var(--err)':'var(--ok)'}">₹${this.fmt(r.outstanding)}</td>
+          <td><div class="ta">
+            <button class="btn btn-sm btn-s" onclick="A.viewLedger('${r.phId}','${r.name}')">History</button>
+            ${r.outstanding>0?`<button class="btn btn-sm btn-ok" onclick="A.recordPaymentModal('${r.phId}','${r.name}',${r.outstanding.toFixed(2)})">Record Pay</button>`:''}
+          </div></td>
+        </tr>`).join('');
+    }
+  },
+
+  recordPaymentModal(phId,phName,outstanding){
+    this.showModal('Record Payment — '+phName,
+      `<div class="ai info" style="margin-bottom:14px"><span class="material-icons-round ai-icon">payments</span><div class="ai-txt"><strong>Outstanding: ₹${this.fmt(outstanding)}</strong><span>Recording this payment will auto-mark oldest unpaid bills as paid.</span></div></div>
+      <div class="fr"><div class="fg"><label>Amount Received (₹) *</label><input id="pay-amt" type="number" min="1" step="0.01" placeholder="0.00" value="${(+outstanding).toFixed(2)}"></div>
+      <div class="fg"><label>Payment Date *</label><input id="pay-date" type="date" value="${new Date().toLocaleDateString('en-CA')}"></div></div>
+      <div class="fr"><div class="fg"><label>Method</label><select id="pay-method"><option value="cash">Cash</option><option value="upi">UPI</option><option value="neft">NEFT/RTGS</option><option value="imps">IMPS</option><option value="cheque">Cheque</option></select></div>
+      <div class="fg"><label>UTR / Reference No.</label><input id="pay-ref" placeholder="UTR or cheque number"></div></div>
+      <div class="fg"><label>Note</label><input id="pay-note" placeholder="Optional note"></div>`,
+      `<button class="btn btn-s" onclick="A.closeModal()">Cancel</button>
+       <button class="btn btn-ok" onclick="A.savePayment('${phId}')"><span class="material-icons-round">save</span>Save Payment</button>`
+    );
+  },
+
+  async savePayment(phId){
+    const amt=parseFloat(Q('#pay-amt')?.value),date=Q('#pay-date')?.value;
+    if(!amt||!date){this.toast('Amount and date are required','err');return;}
+    const res=await apiPost('/payments',{phId,amount:amt,date,method:Q('#pay-method')?.value||'cash',ref:Q('#pay-ref')?.value||'',note:Q('#pay-note')?.value||''});
+    if(res?.ok){
+      this.closeModal();
+      this.toast('Payment recorded! Bills auto-updated.','ok');
+      const bills=await apiGet('/bills');if(bills)this.data.bills=bills;
+      this.loadAnalytics();
+    } else { this.toast('Failed to save payment','err'); }
+  },
+
+  async viewLedger(phId,phName){
+    const [bills,payments]=await Promise.all([apiGet('/bills?phId='+phId),apiGet('/payments/'+phId)]);
+    const b=bills||[];const p=payments||[];
+    const allEntries=[
+      ...b.map(x=>({date:x.date,type:'debit',desc:'Bill '+x.id+' (Order '+x.ordId+')',amount:x.amt,status:x.status,id:x.id})),
+      ...p.map(x=>({date:x.date,type:'credit',desc:'Payment received ('+x.method+')'+( x.ref?' Ref:'+x.ref:''),amount:x.amount,status:'paid',id:x.id}))
+    ].sort((a,b)=>a.date>b.date?-1:1);
+    const totalDebit=b.reduce((s,x)=>s+x.amt,0);
+    const totalCredit=p.reduce((s,x)=>s+x.amount,0)+b.filter(x=>x.status==='paid').reduce((s,x)=>s+x.amt,0);
+    const balance=b.filter(x=>x.status==='unpaid').reduce((s,x)=>s+x.amt,0);
+    this.showModal(phName+' — Account Ledger',
+      `<div class="sg" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
+        <div class="sc p" style="flex-direction:column;padding:12px;text-align:center"><div class="sv" style="font-size:1.1rem">₹${this.fmt(totalDebit)}</div><div class="sl2">Total Billed</div></div>
+        <div class="sc g" style="flex-direction:column;padding:12px;text-align:center"><div class="sv" style="font-size:1.1rem;color:var(--ok)">₹${this.fmt(totalCredit)}</div><div class="sl2">Collected</div></div>
+        <div class="sc o" style="flex-direction:column;padding:12px;text-align:center"><div class="sv" style="font-size:1.1rem;color:${balance>0?'var(--err)':'var(--ok)'}">₹${this.fmt(balance)}</div><div class="sl2">Outstanding</div></div>
+      </div>
+      <div class="tw"><table><thead><tr><th>Date</th><th>Description</th><th>Debit</th><th>Credit</th><th>Status</th></tr></thead><tbody>
+      ${allEntries.length?allEntries.map(e=>`<tr style="background:${e.type==='credit'?'rgba(0,212,142,.04)':''}"><td>${e.date}</td><td style="font-size:.82rem">${e.desc}</td><td style="color:${e.type==='debit'?'var(--err)':'var(--mute)'}">${e.type==='debit'?'₹'+this.fmt(e.amount):'—'}</td><td style="color:${e.type==='credit'?'var(--ok)':'var(--mute)'}">${e.type==='credit'?'₹'+this.fmt(e.amount):'—'}</td><td>${this.sbadge(e.status)}</td></tr>`).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--mute);padding:16px">No transactions yet</td></tr>'}
+      </tbody></table></div>`,
+      `<button class="btn btn-s" onclick="A.closeModal()">Close</button><button class="btn btn-ok" onclick="A.closeModal();A.recordPaymentModal('${phId}','${phName}',${balance.toFixed(2)})">Record Payment</button>`,'mdl-lg'
+    );
   },
 
   exportCSV(type){

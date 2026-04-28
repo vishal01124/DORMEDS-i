@@ -400,6 +400,39 @@ async function initDB() {
       expiry_date TEXT NOT NULL,
       created_at TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS payments (
+      id TEXT PRIMARY KEY,
+      ph_id TEXT NOT NULL,
+      ph_name TEXT NOT NULL,
+      amount REAL NOT NULL,
+      method TEXT DEFAULT 'cash',
+      ref TEXT DEFAULT '',
+      note TEXT DEFAULT '',
+      date TEXT NOT NULL,
+      recorded_by TEXT DEFAULT 'admin',
+      created_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS quotations (
+      id TEXT PRIMARY KEY,
+      ph_id TEXT,
+      ph_name TEXT,
+      items TEXT,
+      valid_until TEXT,
+      status TEXT DEFAULT 'draft',
+      note TEXT DEFAULT '',
+      created_at TEXT
+    );
+
+    -- Feature 1: dispatch fields on orders
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS dispatch_date TEXT DEFAULT NULL;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS challan_no TEXT DEFAULT NULL;
+
+    -- Feature 6: hospital fields on pharmacies
+    ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS ph_type TEXT DEFAULT 'retail';
+    ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS gstin TEXT DEFAULT NULL;
+    ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS wa_number TEXT DEFAULT NULL;
   `);
 
   // Always upsert super admin from env vars — stays in sync when env vars change
@@ -842,6 +875,142 @@ app.get('/api/admin/analytics', authMiddleware, adminMiddleware, async (req, res
   });
 });
 
+// ── RICH ANALYTICS ────────────────────────────────────────────
+app.get('/api/analytics/revenue', authMiddleware, adminMiddleware, async (req, res) => {
+  // Monthly revenue for last 6 months from bills (paid)
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date();
+    d.setMonth(d.getMonth() - i);
+    const label = d.toLocaleString('en-IN', { month: 'short', year: '2-digit' });
+    const yyyy = d.getFullYear();
+    const mm   = String(d.getMonth() + 1).padStart(2, '0');
+    const prefix = `${yyyy}-${mm}`;
+    const row = await dbGet(
+      "SELECT COALESCE(SUM(amt),0) as rev FROM bills WHERE status='paid' AND date LIKE $1",
+      [`${prefix}%`]
+    );
+    // Also count payments recorded manually
+    const payRow = await dbGet(
+      "SELECT COALESCE(SUM(amount),0) as pay FROM payments WHERE date LIKE $1",
+      [`${prefix}%`]
+    );
+    months.push({ label, revenue: +(+row.rev + +payRow.pay).toFixed(2) });
+  }
+  res.json(months);
+});
+
+app.get('/api/analytics/top-medicines', authMiddleware, adminMiddleware, async (req, res) => {
+  // Get top medicines from order items (JSON column)
+  const ords = await dbAll("SELECT drugs FROM orders WHERE type='inventory' AND status IN ('approved','delivered')");
+  const totals = {};
+  for (const ord of ords) {
+    const drugs = parseJSON(ord.drugs);
+    for (const d of drugs) {
+      if (!d.name) continue;
+      totals[d.name] = (totals[d.name] || 0) + (d.qty || 0);
+    }
+  }
+  const sorted = Object.entries(totals)
+    .map(([name, qty]) => ({ name, qty }))
+    .sort((a, b) => b.qty - a.qty)
+    .slice(0, 8);
+  res.json(sorted);
+});
+
+app.get('/api/analytics/top-pharmacies', authMiddleware, adminMiddleware, async (req, res) => {
+  const rows = await dbAll(
+    "SELECT ph_id, ph_name, COALESCE(SUM(amt),0) as total FROM bills WHERE status='paid' GROUP BY ph_id, ph_name ORDER BY total DESC LIMIT 8"
+  );
+  res.json(rows.map(r => ({ phId: r.ph_id, name: r.ph_name, total: +r.total })));
+});
+
+app.get('/api/analytics/orders-trend', authMiddleware, adminMiddleware, async (req, res) => {
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date();
+    d.setMonth(d.getMonth() - i);
+    const label = d.toLocaleString('en-IN', { month: 'short', year: '2-digit' });
+    const yyyy = d.getFullYear();
+    const mm   = String(d.getMonth() + 1).padStart(2, '0');
+    const prefix = `${yyyy}-${mm}`;
+    const row = await dbGet(
+      "SELECT COUNT(*) as cnt FROM orders WHERE type='inventory' AND date LIKE $1",
+      [`${prefix}%`]
+    );
+    months.push({ label, orders: +row.cnt });
+  }
+  res.json(months);
+});
+
+// ── PAYMENT LEDGER ────────────────────────────────────────────
+// Record a payment
+app.post('/api/payments', authMiddleware, adminMiddleware, async (req, res) => {
+  const d = req.body;
+  if (!d.phId || !d.amount || !d.date)
+    return res.status(400).json({ ok: false, msg: 'phId, amount and date are required.' });
+  const pid = 'PAY-' + uid();
+  const ph  = await dbGet('SELECT name FROM pharmacies WHERE id=$1', [d.phId]);
+  if (!ph) return res.status(404).json({ ok: false, msg: 'Pharmacy not found.' });
+  await dbRun(
+    'INSERT INTO payments (id,ph_id,ph_name,amount,method,ref,note,date,recorded_by,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+    [pid, d.phId, ph.name, +d.amount, d.method||'cash', d.ref||'', d.note||'', d.date, req.user.id, new Date().toISOString()]
+  );
+  // Mark oldest unpaid bills as paid up to the payment amount
+  const unpaid = await dbAll("SELECT * FROM bills WHERE ph_id=$1 AND status='unpaid' ORDER BY date ASC", [d.phId]);
+  let remaining = +d.amount;
+  for (const bill of unpaid) {
+    if (remaining <= 0) break;
+    if (bill.amt <= remaining) {
+      await dbRun("UPDATE bills SET status='paid', paid=$1 WHERE id=$2", [d.date, bill.id]);
+      remaining -= bill.amt;
+    }
+  }
+  await auditLog('PAYMENT_RECORDED', req.user.id, 'admin', `${ph.name}: ₹${d.amount} (${d.method||'cash'})`);
+  res.json({ ok: true, id: pid });
+});
+
+// Get all payments for a pharmacy
+app.get('/api/payments/:phId', authMiddleware, adminMiddleware, async (req, res) => {
+  const rows = await dbAll('SELECT * FROM payments WHERE ph_id=$1 ORDER BY date DESC', [req.params.phId]);
+  res.json(rows.map(r => ({ ...r, phId: r.ph_id, phName: r.ph_name })));
+});
+
+// Get all payments (for ledger summary)
+app.get('/api/payments', authMiddleware, adminMiddleware, async (req, res) => {
+  const rows = await dbAll('SELECT * FROM payments ORDER BY date DESC LIMIT 200');
+  res.json(rows.map(r => ({ ...r, phId: r.ph_id, phName: r.ph_name })));
+});
+
+// Get ledger summary for all pharmacies
+app.get('/api/ledger/summary', authMiddleware, adminMiddleware, async (req, res) => {
+  const pharmacies = await dbAll("SELECT id, name FROM pharmacies WHERE status='active'");
+  const result = [];
+  for (const ph of pharmacies) {
+    const totalBilled = await dbGet("SELECT COALESCE(SUM(amt),0) as t FROM bills WHERE ph_id=$1", [ph.id]);
+    const totalPaid   = await dbGet("SELECT COALESCE(SUM(amt),0) as t FROM bills WHERE ph_id=$1 AND status='paid'", [ph.id]);
+    const manualPaid  = await dbGet('SELECT COALESCE(SUM(amount),0) as t FROM payments WHERE ph_id=$1', [ph.id]);
+    const outstanding = +totalBilled.t - +totalPaid.t;
+    result.push({
+      phId: ph.id,
+      name: ph.name,
+      totalBilled: +totalBilled.t,
+      totalPaid: +totalPaid.t,
+      manualPayments: +manualPaid.t,
+      outstanding: Math.max(0, outstanding),
+    });
+  }
+  result.sort((a, b) => b.outstanding - a.outstanding);
+  res.json(result);
+});
+
+// Delete a payment record (admin only)
+app.delete('/api/payments/:pid', authMiddleware, adminMiddleware, async (req, res) => {
+  await dbRun('DELETE FROM payments WHERE id=$1', [req.params.pid]);
+  await auditLog('PAYMENT_DELETED', req.user.id, 'admin', req.params.pid);
+  res.json({ ok: true });
+});
+
 app.put('/api/dist', authMiddleware, adminMiddleware, async (req, res) => {
   const d = req.body;
   await dbRun('UPDATE dist_info SET name=$1,address=$2,phone=$3,mobile=$4,email=$5,gst=$6,license=$7 WHERE id=1',
@@ -986,7 +1155,28 @@ app.put('/api/orders/:oid', authMiddleware, async (req, res) => {
   const d = req.body, { oid } = req.params;
   if ('status' in d) await dbRun('UPDATE orders SET status=$1 WHERE id=$2', [d.status, oid]);
   if ('billed' in d) await dbRun('UPDATE orders SET billed=$1 WHERE id=$2', [Boolean(d.billed), oid]);
+  if ('dispatch_date' in d) await dbRun('UPDATE orders SET dispatch_date=$1 WHERE id=$2', [d.dispatch_date, oid]);
+  if ('challan_no' in d)    await dbRun('UPDATE orders SET challan_no=$1 WHERE id=$2',    [d.challan_no, oid]);
   res.json({ ok: true });
+});
+
+// Dispatch order — set to dispatched + generate challan
+app.post('/api/orders/:oid/dispatch', authMiddleware, adminMiddleware, async (req, res) => {
+  const { oid } = req.params;
+  const ord = await dbGet('SELECT * FROM orders WHERE id=$1', [oid]);
+  if (!ord) return res.status(404).json({ ok: false, msg: 'Order not found.' });
+  const challanNo = 'CHN-' + Date.now().toString(36).toUpperCase();
+  const dispatchDate = new Date().toLocaleDateString('en-CA');
+  await dbRun("UPDATE orders SET status='dispatched', dispatch_date=$1, challan_no=$2 WHERE id=$3",
+    [dispatchDate, challanNo, oid]);
+  await auditLog('ORDER_DISPATCHED', req.user.id, 'admin', `${oid} → ${challanNo}`);
+  // Notify pharmacy
+  const nid = 'n' + uid();
+  await dbRun('INSERT INTO notifs VALUES ($1,$2,$3,$4,$5,$6,$7)',
+    [nid, 'order', `Your order ${oid} has been dispatched! Challan: ${challanNo}`, dispatchDate, false, false, ord.ph_id]);
+  // Send SSE to connected pharmacy
+  broadcastSSE({ type: 'notif', data: { type: 'order', msg: `Order ${oid} dispatched — Challan: ${challanNo}`, ph: ord.ph_id } });
+  res.json({ ok: true, challanNo, dispatchDate });
 });
 
 // ── BILLS ─────────────────────────────────────────────────────
@@ -1262,5 +1452,185 @@ async function main() {
   }
 }
 
-main().catch(e => { console.error('Failed to start:', e); process.exit(1); });
+// ── QUOTATIONS (Feature 6 — Hospital Module) ─────────────────
+app.get('/api/quotations', authMiddleware, adminMiddleware, async (req, res) => {
+  const rows = await dbAll('SELECT * FROM quotations ORDER BY created_at DESC');
+  res.json(rows.map(r => ({ ...r, items: parseJSON(r.items) })));
+});
 
+app.post('/api/quotations', authMiddleware, adminMiddleware, async (req, res) => {
+  const d = req.body, qid = 'QUO-' + uid();
+  const ph = await dbGet('SELECT name FROM pharmacies WHERE id=$1', [d.phId]);
+  await dbRun('INSERT INTO quotations VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+    [qid, d.phId, ph?.name||d.phName||'', JSON.stringify(d.items||[]),
+     d.validUntil||'', d.status||'draft', d.note||'', new Date().toISOString()]);
+  await auditLog('QUOTATION_CREATED', req.user.id, 'admin', qid);
+  res.json({ ok: true, id: qid });
+});
+
+app.put('/api/quotations/:qid', authMiddleware, adminMiddleware, async (req, res) => {
+  const d = req.body;
+  await dbRun('UPDATE quotations SET status=$1,note=$2 WHERE id=$3', [d.status, d.note||'', req.params.qid]);
+  res.json({ ok: true });
+});
+
+// Update pharmacy type/gstin/wa_number
+app.patch('/api/pharmacies/:pid/type', authMiddleware, adminMiddleware, async (req, res) => {
+  const { ph_type, gstin, wa_number } = req.body;
+  await dbRun('UPDATE pharmacies SET ph_type=COALESCE($1,ph_type), gstin=COALESCE($2,gstin), wa_number=COALESCE($3,wa_number) WHERE id=$4',
+    [ph_type||null, gstin||null, wa_number||null, req.params.pid]);
+  res.json({ ok: true });
+});
+
+// ── WHATSAPP BOT (Feature 7) ───────────────────────────────────
+const WA_TOKEN  = process.env.WA_VERIFY_TOKEN || 'pharmadist_wa_token';
+const WA_ACCESS = process.env.WA_ACCESS_TOKEN || '';
+
+// Meta webhook verification
+app.get('/api/whatsapp/webhook', (req, res) => {
+  const mode  = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+  if (mode === 'subscribe' && token === WA_TOKEN) {
+    console.log('✅ WhatsApp webhook verified');
+    res.status(200).send(challenge);
+  } else {
+    res.status(403).send('Forbidden');
+  }
+});
+
+// Meta webhook receiver — parse incoming orders
+app.post('/api/whatsapp/webhook', async (req, res) => {
+  res.sendStatus(200); // acknowledge immediately
+  try {
+    const entry = req.body?.entry?.[0];
+    const changes = entry?.changes?.[0];
+    const msg = changes?.value?.messages?.[0];
+    if (!msg || msg.type !== 'text') return;
+    const from = msg.from; // pharmacy WA number
+    const text = msg.text?.body || '';
+    console.log(`📱 WA message from ${from}: ${text}`);
+
+    // Find pharmacy by wa_number
+    const ph = await dbGet('SELECT * FROM pharmacies WHERE wa_number=$1', [from]);
+    if (!ph) {
+      await sendWhatsApp(from, '❌ Your number is not registered. Contact your distributor.');
+      return;
+    }
+
+    // Parse order: "Order: Paracetamol 500 x 100, Metformin x 200"
+    const lower = text.toLowerCase();
+    if (!lower.startsWith('order:') && !lower.startsWith('order ')) {
+      await sendWhatsApp(from, `👋 Hi ${ph.name}! Send: *Order: MedicineName x Qty* to place an order.`);
+      return;
+    }
+    const items = parseWAOrder(text);
+    if (!items.length) {
+      await sendWhatsApp(from, '❌ Could not parse your order. Format: *Order: Paracetamol x 100, Metformin x 200*');
+      return;
+    }
+    // Create order
+    const oid = 'ORD-WA-' + uid();
+    const date = new Date().toLocaleDateString('en-CA');
+    const drugs = items.map(i => ({ name: i.name, qty: i.qty, up: 0, tot: 0 }));
+    await dbRun('INSERT INTO orders VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',
+      [oid, 'inventory', ph.id, ph.name, JSON.stringify(drugs), 0, 0, 0, date, 'pending', 'paid', 'Via WhatsApp', false, '']);
+    // Notify admin via SSE
+    broadcastSSE({ type: 'order', data: { id: oid, phName: ph.name, via: 'whatsapp' } });
+    const nid = 'n' + uid();
+    await dbRun('INSERT INTO notifs VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [nid, 'order', `WhatsApp order from ${ph.name}: ${items.map(i=>i.name+' x'+i.qty).join(', ')}`, date, false, true, null]);
+    // Confirm to pharmacy via WA
+    const itemList = items.map((i, n) => `${n+1}. ${i.name} × ${i.qty}`).join('\n');
+    await sendWhatsApp(from, `✅ *Order Received!*\nOrder ID: ${oid}\n\n${itemList}\n\nWe will confirm shortly. Thank you!`);
+  } catch(e) { console.error('WA webhook error:', e.message); }
+});
+
+function parseWAOrder(text) {
+  // Remove "Order:" prefix
+  const body = text.replace(/^order[:\s]+/i, '');
+  const items = [];
+  const parts = body.split(',');
+  for (const part of parts) {
+    const clean = part.trim();
+    // Match: "Paracetamol 500mg x 100" or "Paracetamol 500mg 100"
+    const m = clean.match(/^(.+?)\s+[x×]\s*(\d+)$/i) || clean.match(/^(.+?)\s+(\d+)$/);
+    if (m) items.push({ name: m[1].trim(), qty: parseInt(m[2]) });
+  }
+  return items;
+}
+
+async function sendWhatsApp(to, message) {
+  if (!WA_ACCESS) return console.log(`[WA MOCK] To ${to}: ${message}`);
+  try {
+    const PHONE_NUMBER_ID = process.env.WA_PHONE_ID || '';
+    await fetch(`https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${WA_ACCESS}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messaging_product: 'whatsapp', to, type: 'text', text: { body: message } }),
+      signal: AbortSignal.timeout(10000),
+    });
+  } catch(e) { console.error('WA send error:', e.message); }
+}
+
+// Manual WA send endpoint (admin triggers reminders)
+app.post('/api/whatsapp/send', authMiddleware, adminMiddleware, async (req, res) => {
+  const { to, message } = req.body;
+  if (!to || !message) return res.status(400).json({ ok: false, msg: 'to and message required.' });
+  await sendWhatsApp(to, message);
+  res.json({ ok: true });
+});
+
+// ── SCHEDULED ALERTS (Feature 4) ─────────────────────────────
+async function runScheduledAlerts() {
+  console.log('🔔 Running scheduled alerts...');
+  const today = new Date();
+  const todayStr = today.toLocaleDateString('en-CA');
+
+  // 1. Payment due in 3 days
+  const in3 = new Date(today); in3.setDate(in3.getDate() + 3);
+  const in3Str = in3.toLocaleDateString('en-CA');
+  const dueBills = await dbAll("SELECT * FROM bills WHERE status='unpaid' AND due=$1", [in3Str]);
+  for (const bill of dueBills) {
+    const existing = await dbGet("SELECT id FROM notifs WHERE msg LIKE $1 AND date=$2", [`%${bill.id}%due%`, todayStr]);
+    if (existing) continue;
+    const nid = 'n' + uid();
+    await dbRun('INSERT INTO notifs VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [nid, 'payment', `⚠️ Bill ${bill.id} for ${bill.ph_name} (₹${bill.amt}) due in 3 days (${bill.due})`, todayStr, false, true, null]);
+    // Also notify pharmacy
+    const pnid = 'n' + uid();
+    await dbRun('INSERT INTO notifs VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [pnid, 'payment', `⏰ Your bill ${bill.id} of ₹${bill.amt} is due in 3 days (${bill.due}). Please pay on time.`, todayStr, false, false, bill.ph_id]);
+  }
+
+  // 2. Near-expiry dist stock (30 days)
+  const in30 = new Date(today); in30.setDate(in30.getDate() + 30);
+  const in30Str = in30.toLocaleDateString('en-CA');
+  const nearExpiry = await dbAll('SELECT * FROM dist_stock WHERE expiry > $1 AND expiry <= $2 AND stock > 0', [todayStr, in30Str]);
+  for (const item of nearExpiry) {
+    const existing = await dbGet("SELECT id FROM notifs WHERE msg LIKE $1 AND date=$2", [`%${item.name}%expiry%`, todayStr]);
+    if (existing) continue;
+    const nid = 'n' + uid();
+    await dbRun('INSERT INTO notifs VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [nid, 'expiry', `⚠️ Distributor stock: ${item.name} expires on ${item.expiry} (${item.stock} units remaining)`, todayStr, false, true, null]);
+  }
+
+  // 3. Low distributor stock
+  const lowStock = await dbAll('SELECT * FROM dist_stock WHERE stock <= min_stock AND stock > 0');
+  for (const item of lowStock) {
+    const existing = await dbGet("SELECT id FROM notifs WHERE msg LIKE $1 AND date=$2", [`%${item.name}%low stock%`, todayStr]);
+    if (existing) continue;
+    const nid = 'n' + uid();
+    await dbRun('INSERT INTO notifs VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [nid, 'stock', `🔴 Low stock: ${item.name} — only ${item.stock} units left (min: ${item.min_stock})`, todayStr, false, true, null]);
+  }
+
+  console.log(`✅ Alerts done: ${dueBills.length} payment due, ${nearExpiry.length} near-expiry, ${lowStock.length} low-stock`);
+}
+
+// Start scheduled alerts: run once on boot, then every 24 hours
+main().then(() => {
+  runScheduledAlerts().catch(e => console.error('Alert run error:', e.message));
+  setInterval(() => runScheduledAlerts().catch(e => console.error('Alert interval error:', e.message)), 24 * 60 * 60 * 1000);
+  console.log('🔔 Scheduled alerts running (every 24h)');
+}).catch(e => { console.error('Failed to start:', e); process.exit(1); });
