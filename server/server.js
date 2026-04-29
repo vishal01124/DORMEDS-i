@@ -1224,7 +1224,8 @@ app.post('/api/orders/:oid/dispatch', authMiddleware, adminMiddleware, async (re
   await dbRun('INSERT INTO notifs VALUES ($1,$2,$3,$4,$5,$6,$7)',
     [nid, 'order', `Your order ${oid} has been dispatched! Challan: ${challanNo}`, dispatchDate, false, false, ord.ph_id]);
   // Send SSE to connected pharmacy
-  broadcastSSE({ type: 'notif', data: { type: 'order', msg: `Order ${oid} dispatched — Challan: ${challanNo}`, ph: ord.ph_id } });
+  ssePush(ord.ph_id, 'notif', { type: 'order', msg: `Order ${oid} dispatched — Challan: ${challanNo}`, ph: ord.ph_id });
+  sseBroadcastAdmin('notif', { type: 'order', msg: `Order ${oid} dispatched to ${ord.ph_name}` });
   res.json({ ok: true, challanNo, dispatchDate });
 });
 
