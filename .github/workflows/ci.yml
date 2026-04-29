@@ -21,13 +21,13 @@ jobs:
           node-version: '18'
 
       # Step 1: npm install must succeed — catches bad versions like nodemailer@8
-      - name: Install dependencies
-        working-directory: ./server
+      - name: Install dependencies (mirrors Render buildCommand)
         run: npm install --ignore-scripts
 
       # Step 2: Verify every dependency actually resolves
       - name: Verify all packages exist
         working-directory: ./server
+        # server.js requires from here, node walks up to root node_modules
         run: |
           echo "🔍 Checking all dependencies resolve correctly..."
           node -e "
@@ -49,13 +49,14 @@ jobs:
       # Step 3: Syntax check — catches require() typos and syntax errors
       - name: Syntax check server.js
         working-directory: ./server
+        # Validates require() paths and JS syntax
         run: node --check server.js
 
       # Step 4: Simulate Render's exact build + start commands
       - name: Simulate Render build
         run: |
-          echo "🏗️ Simulating Render build command: cd server && npm install"
-          cd server && npm install
+          echo "🏗️ Simulating Render build command: npm install"
+          npm install
           echo "✅ Render build simulation passed"
 
       - name: Simulate Render start (quick boot test)

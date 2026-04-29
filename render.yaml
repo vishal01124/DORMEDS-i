@@ -2,7 +2,7 @@ services:
   - type: web
     name: pharmadist-pro
     runtime: node
-    buildCommand: cd server && npm install
+    buildCommand: npm install
     startCommand: node server/server.js
     plan: free
     healthCheckPath: /api/health
