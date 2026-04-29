@@ -1015,6 +1015,51 @@ app.delete('/api/payments/:pid', authMiddleware, adminMiddleware, async (req, re
   res.json({ ok: true });
 });
 
+// ── QUOTATIONS ────────────────────────────────────────────────
+// List all quotations
+app.get('/api/quotations', authMiddleware, async (req, res) => {
+  const rows = await dbAll('SELECT * FROM quotations ORDER BY created_at DESC');
+  res.json(rows.map(r => ({
+    ...r,
+    items: parseJSON(r.items),
+    phId: r.ph_id,
+    phName: r.ph_name,
+  })));
+});
+
+// Create a quotation
+app.post('/api/quotations', authMiddleware, adminMiddleware, async (req, res) => {
+  const d = req.body;
+  if (!d.phId || !d.items || !d.items.length)
+    return res.status(400).json({ ok: false, msg: 'Pharmacy and at least one item are required.' });
+  const ph = await dbGet('SELECT name FROM pharmacies WHERE id=$1', [d.phId]);
+  if (!ph) return res.status(404).json({ ok: false, msg: 'Pharmacy not found.' });
+  const qid = 'QUO-' + uid();
+  await dbRun(
+    'INSERT INTO quotations (id,ph_id,ph_name,items,valid_until,status,note,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+    [qid, d.phId, ph.name, JSON.stringify(d.items), d.validUntil || null, d.status || 'draft', d.note || '', new Date().toISOString()]
+  );
+  await auditLog('QUOTATION_CREATED', req.user.id, 'admin', `${qid} for ${ph.name}`);
+  res.json({ ok: true, id: qid });
+});
+
+// Update a quotation
+app.put('/api/quotations/:qid', authMiddleware, adminMiddleware, async (req, res) => {
+  const d = req.body, { qid } = req.params;
+  await dbRun(
+    'UPDATE quotations SET items=COALESCE($1,items),valid_until=COALESCE($2,valid_until),status=COALESCE($3,status),note=COALESCE($4,note) WHERE id=$5',
+    [d.items ? JSON.stringify(d.items) : null, d.validUntil || null, d.status || null, d.note || null, qid]
+  );
+  res.json({ ok: true });
+});
+
+// Delete a quotation
+app.delete('/api/quotations/:qid', authMiddleware, adminMiddleware, async (req, res) => {
+  await dbRun('DELETE FROM quotations WHERE id=$1', [req.params.qid]);
+  await auditLog('QUOTATION_DELETED', req.user.id, 'admin', req.params.qid);
+  res.json({ ok: true });
+});
+
 app.put('/api/dist', authMiddleware, adminMiddleware, async (req, res) => {
   const d = req.body;
   await dbRun('UPDATE dist_info SET name=$1,address=$2,phone=$3,mobile=$4,email=$5,gst=$6,license=$7 WHERE id=1',
