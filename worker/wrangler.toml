@@ -2,6 +2,7 @@ name = "pharmadist-pro"
 main = "src/index.js"
 compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]
+account_id = "952bda4e5ad829272481d40a6ee6265e"
 
 
 
