@@ -1,0 +1,27 @@
+name = "pharmadist-pro"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pharmadist-db"
+database_id = "7c635caf-204f-43b9-8702-2be65227d5a8"
+
+[vars]
+APP_URL = "https://pharmadist-pro.pages.dev"
+NODE_ENV = "production"
+
+[triggers]
+crons = ["0 2 * * *"]
+
+# Secrets (set via: wrangler secret put SECRET_NAME)
+# JWT_SECRET
+# ADMIN_EMAIL
+# ADMIN_PASSWORD
+# RESEND_API_KEY
+# WA_VERIFY_TOKEN
+# WA_ACCESS_TOKEN
+# WA_PHONE_ID
